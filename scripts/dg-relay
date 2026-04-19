@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# ------------------------------------------------------------------------------
+# dg-relay
+#
+# Coordinator tool (mike only). Relays a worker's pr/<slug> branch into the
+# repo's dev branch and pushes to both the local bare mirror and to GitHub.
+#
+# Usage:
+#   dg-relay <worker> <repo> <pr-branch>
+#   dg-relay dcapl sw-cor24-apl pr/claude-md-branching
+#
+# Behavior:
+#   - Creates a mike-private relay checkout at work/relay/<repo>/ on first use.
+#   - Bootstraps 'dev' from 'main' on the bare AND on GitHub if not yet there.
+#   - Fetches the worker's pr branch into refs/pr-queue/<worker>/<slug>.
+#   - No-ops if the pr branch is already an ancestor of dev.
+#   - Merges --no-ff; on conflict, aborts cleanly and exits 2 so the worker
+#     can rebase.
+#   - Pushes only refs/heads/dev to bare and to GitHub. Worker pr/* and feat/*
+#     branches never reach either, per design.
+# ------------------------------------------------------------------------------
+
+BASE="/disk1/github/softwarewrighter/devgroup"
+BARE_DIR="${BASE}/work/bare"
+RELAY_DIR="${BASE}/work/relay"
+ADMIN_USER="mike"
+
+if [[ "$(id -un)" != "$ADMIN_USER" ]]; then
+  echo "ERROR: run as $ADMIN_USER (not root/sudo)." >&2
+  exit 1
+fi
+
+if [[ $# -ne 3 ]]; then
+  cat >&2 <<USAGE
+usage: dg-relay <worker> <repo> <pr-branch>
+  e.g. dg-relay dcapl sw-cor24-apl pr/claude-md-branching
+USAGE
+  exit 1
+fi
+
+WORKER="$1"
+REPO="$2"
+PR_BRANCH="$3"
+
+case "$PR_BRANCH" in
+  pr/*) ;;
+  *) echo "ERROR: pr-branch must start with 'pr/'" >&2; exit 1 ;;
+esac
+
+# Derive a clean slug: pr/foo -> foo, pr/feat/foo -> foo, pr/fix/foo -> foo.
+slug="${PR_BRANCH#pr/}"
+slug="${slug#feat/}"
+slug="${slug#fix/}"
+
+BARE="${BARE_DIR}/${REPO}.git"
+RELAY="${RELAY_DIR}/${REPO}"
+WORKER_CLONE="${BASE}/work/${WORKER}/github/sw-embed/${REPO}"
+
+[[ -d "$BARE" ]]          || { echo "ERROR: no bare at $BARE" >&2; exit 1; }
+[[ -d "$WORKER_CLONE" ]]  || { echo "ERROR: no worker clone at $WORKER_CLONE" >&2; exit 1; }
+
+install -d -m 0700 "$RELAY_DIR"
+
+if [[ ! -d "$RELAY/.git" ]]; then
+  echo "==> cloning bare -> relay ($RELAY)"
+  git clone "$BARE" "$RELAY"
+  chmod -R go-rwx "$RELAY"
+fi
+
+cd "$RELAY"
+git fetch origin --prune
+
+if git rev-parse --verify --quiet origin/dev >/dev/null; then
+  git switch dev 2>/dev/null || git switch -c dev --track origin/dev
+  git merge --ff-only origin/dev
+else
+  echo "==> bootstrapping dev from origin/main"
+  git switch -c dev origin/main
+fi
+
+QUEUE_REF="refs/pr-queue/${WORKER}/${slug}"
+echo "==> fetching ${WORKER}:${PR_BRANCH} -> ${QUEUE_REF}"
+git fetch "$WORKER_CLONE" "${PR_BRANCH}:${QUEUE_REF}"
+
+if git merge-base --is-ancestor "$QUEUE_REF" dev; then
+  echo "==> already merged; nothing to do"
+  git update-ref -d "$QUEUE_REF"
+  exit 0
+fi
+
+echo "==> merging (no-ff)"
+if ! git merge --no-ff -m "Merge ${WORKER}/${PR_BRANCH}" "$QUEUE_REF"; then
+  git merge --abort 2>/dev/null || true
+  git update-ref -d "$QUEUE_REF"
+  cat >&2 <<EOF
+ERROR: merge conflict.
+
+${WORKER} must rebase ${PR_BRANCH} on origin/dev and re-signal:
+
+  cd \$SRCROOT
+  git fetch origin
+  git switch ${PR_BRANCH}
+  git branch -m ${PR_BRANCH} feat/${slug}
+  git rebase origin/dev
+  # resolve, commit
+  git branch -m feat/${slug} ${PR_BRANCH}
+EOF
+  exit 2
+fi
+
+echo "==> pushing dev -> bare"
+git push origin refs/heads/dev:refs/heads/dev
+
+# Bare was cloned with --mirror, so an explicit refspec would clash with
+# remote.origin.mirror=true. Disable mirror for this single push.
+echo "==> pushing bare -> github"
+git -C "$BARE" -c remote.origin.mirror=false \
+    push origin refs/heads/dev:refs/heads/dev
+
+git update-ref -d "$QUEUE_REF"
+
+cat <<EOF
+
+==> done: ${WORKER}/${PR_BRANCH} relayed to dev on GitHub.
+
+${WORKER} should now, in their sandbox:
+  cd \$SRCROOT
+  git fetch origin --prune
+  git switch dev 2>/dev/null || git switch -c dev --track origin/dev
+  git merge --ff-only origin/dev
+  git branch -D ${PR_BRANCH}
+EOF

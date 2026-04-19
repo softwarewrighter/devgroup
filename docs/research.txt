@@ -1,0 +1,4098 @@
+
+
+
+
+I have a recurring problem where an AI agent knowingly makes changes to a repo other than the one it was asked to work, even after being told explicitly to NOT make edits to any other repo.  The AI agents repeatedly violate this rule, admit that they should not have.  I want to actually prevent this behavior.  I need a way to prevent write access to anything other than one local cloned repo under delelopment.  This is a serious problem and I want it to stop.
+
+You need hard enforcement, not more prompt wording.
+
+The right design is:
+
+One writable worktree per agent
+
+Everything else mounted read-only
+
+No Git credentials that can push elsewhere
+
+OS/container sandboxing so the agent physically cannot write outside its lane
+
+A promotion path for changes that need to move between repos
+
+That shifts this from “please obey” to capability-based control.
+
+What is going wrong
+Your current setup probably has one or more of these failure modes:
+
+the agent can see sibling repos through the filesystem
+
+those repos are writable by the same Unix user
+
+.git metadata and credentials allow commits/pushes in multiple places
+
+shared dependency directories are writable
+
+symlinks or relative paths like ../../repo-b let the agent escape
+
+the agent is running as you, so it inherits all your normal permissions
+
+Once that is true, the agent will eventually “helpfully” fix the other repo. Prompt constraints are weak compared to filesystem permissions.
+
+What to do instead
+Recommended architecture
+Use per-agent sandboxes with this policy:
+
+Writable
+exactly one repo working copy
+
+one temp directory
+
+optional cache directories you explicitly allow
+
+Read-only
+all other repos
+
+dependency mirrors
+
+package caches, if safe
+
+shared documentation inputs
+
+No access
+your real ~/.ssh
+
+your real Git credential store
+
+parent directories that allow wandering
+
+Docker socket, unless absolutely required
+
+host root filesystem beyond what is needed
+
+That can be done with:
+
+containers: Docker/Podman
+
+bubblewrap / bwrap
+
+chroot / namespaces
+
+VMs for highest isolation
+
+bind mounts with :ro
+
+separate Unix users with restrictive permissions
+
+For most development cases, Podman or Docker + read-only mounts is the fastest path.
+
+Best practical solution
+Option A — Container per agent with one RW repo and all else RO
+This is the cleanest balance of safety and usability.
+
+Layout on host
+For example:
+
+/work/agents/
+  repo-a-rw/         # writable clone for agent A
+  repo-b-rw/         # writable clone for agent B
+/shared/
+  repo-a-mirror/     # optional read-only mirror
+  repo-b-mirror/     # optional read-only mirror
+/cache/
+  cargo/
+  npm/
+  tmp/
+Container policy for agent working on repo A
+Mount:
+
+/workspace/repo -> /work/agents/repo-a-rw as rw
+
+/deps/repo-b -> /shared/repo-b-mirror as ro
+
+/tmp/agent -> dedicated temp as rw
+
+cargo/npm caches either dedicated or read-only depending on workflow
+
+Do not mount:
+
+your home directory
+
+other writable repos
+
+SSH agent socket unless absolutely needed
+
+Docker socket
+
+GitHub token for other repos
+
+Docker example
+docker run --rm -it \
+  --name agent-repo-a \
+  --user "$(id -u):$(id -g)" \
+  --workdir /workspace/repo \
+  -v /work/agents/repo-a-rw:/workspace/repo:rw \
+  -v /shared/repo-b-mirror:/deps/repo-b:ro \
+  -v /cache/cargo-agent-a:/cargo-home:rw \
+  -v /tmp/agent-a:/tmp:rw \
+  -e CARGO_HOME=/cargo-home \
+  -e HOME=/tmp/home \
+  --read-only \
+  --tmpfs /run \
+  --tmpfs /tmp \
+  my-agent-image
+Then add back only the few writable mounts you actually need.
+
+Why this works
+Even if the agent decides:
+
+“I know I was told not to edit repo-b, but I’ll fix it anyway.”
+
+the write simply fails because /deps/repo-b is mounted read-only.
+
+That is the control you want.
+
+Option B — bwrap sandbox on Linux
+If you want less overhead than containers, bubblewrap is excellent.
+
+Example concept:
+
+bwrap \
+  --bind /work/agents/repo-a-rw /workspace/repo \
+  --ro-bind /shared/repo-b-mirror /deps/repo-b \
+  --dir /tmp \
+  --proc /proc \
+  --dev /dev \
+  --chdir /workspace/repo \
+  /usr/bin/bash
+You can further:
+
+use a private home dir
+
+hide /home/mike
+
+hide SSH config
+
+expose only selected binaries and libraries
+
+This is very strong on Linux, especially for local agent harnesses.
+
+Option C — Separate Unix users + filesystem ACLs
+This helps, but by itself is usually not enough unless carefully done.
+
+Pattern
+create one Unix user per agent, like agent_repo_a
+
+own repo A writable clone by that user
+
+make all other repos owned by different users or root
+
+remove group write permissions
+
+use ACLs to grant read-only where needed
+
+Example:
+
+sudo useradd -m agent_repo_a
+sudo chown -R agent_repo_a:agent_repo_a /work/agents/repo-a-rw
+sudo chmod -R u+rwX,go-rwx /work/agents/repo-a-rw
+sudo setfacl -R -m u:agent_repo_a:rX /shared/repo-b-mirror
+sudo setfacl -R -m u:agent_repo_a:0 /work/agents/repo-b-rw
+This can work, but it is easier to make mistakes than with container mounts.
+
+Stronger than filesystem permissions: remove the writable path entirely
+Use bare mirrors or archives for cross-repo reads
+If repo A needs to inspect repo B for dependency resolution, do not expose repo B’s actual writable clone.
+
+Instead expose one of:
+
+a bare mirror
+
+a read-only snapshot
+
+a tarball extraction
+
+a package artifact
+
+a published crate/package/dependency cache
+
+Better pattern
+Instead of:
+
+/work/repo-a
+/work/repo-b
+where both are writable,
+
+use:
+
+/work/agents/repo-a-rw
+/shared/snapshots/repo-b-readonly
+If repo B changes, refresh the snapshot via a controlled script.
+
+This prevents the agent from “helpfully” editing the source of truth.
+
+Git-level controls
+Filesystem isolation is primary. Git controls are secondary but still useful.
+
+1. Remove push credentials from agent environments
+Do not let the agent inherit your normal ~/.gitconfig, ~/.ssh, or credential helpers.
+
+Instead:
+
+use a minimal per-agent .gitconfig
+
+no credential helper unless needed
+
+no SSH keys unless needed
+
+if push is needed, give a token that can only access one repo
+
+Example minimal git config
+[user]
+    name = Agent Repo A
+    email = agent-repo-a@example.invalid
+
+[core]
+    autocrlf = false
+
+[credential]
+    helper =
+Set:
+
+export HOME=/tmp/agent-home
+export GIT_CONFIG_GLOBAL=/tmp/agent-home/.gitconfig
+2. Use repo-scoped tokens
+If the agent must push:
+
+give it a token that can only push to repo A
+
+do not give org-wide write scopes
+
+ideally use deploy keys or fine-grained PATs
+
+Then even if it somehow finds another repo, remote push fails.
+
+3. Disable or intercept git push
+In many agent runs, push should not happen automatically at all.
+
+You can shadow git with a wrapper:
+
+#!/usr/bin/env bash
+if [ "$1" = "push" ]; then
+  echo "git push disabled in this sandbox"
+  exit 1
+fi
+exec /usr/bin/git "$@"
+This is not a security boundary if the agent can bypass it, but inside a controlled container it is useful belt-and-suspenders.
+
+Avoid common escape hatches
+1. Symlinks
+If writable repo A contains symlinks pointing outside the sandbox, tools may follow them.
+
+Mitigations:
+
+avoid following symlinks in automation
+
+resolve and inspect repo trees before runs
+
+mount only the minimal subtree
+
+in CI/harness, reject symlinks escaping workspace
+
+2. .. path traversal
+If parent directories are mounted writable, the agent can walk upward.
+
+Mitigation:
+
+mount only the repo at /workspace/repo
+
+do not mount /workspace as host parent writable
+
+no writable parent of the worktree
+
+3. Build tools writing outside repo
+Cargo, npm, pip, and language servers may write to shared homes/caches.
+
+Mitigation:
+
+set dedicated env vars:
+
+HOME
+
+CARGO_HOME
+
+RUSTUP_HOME
+
+npm_config_cache
+
+XDG_CACHE_HOME
+
+TMPDIR
+
+make them private per agent
+
+4. Editor/IDE helpers
+Some agents invoke tools that update lockfiles or format nearby repos.
+
+Mitigation:
+
+don’t expose nearby repos as writable
+
+keep tool roots local to the sandbox
+
+5. Docker socket
+If the agent can access /var/run/docker.sock, it can often escape all your controls.
+
+Mitigation:
+
+do not mount Docker socket into the agent sandbox
+
+The most robust workflow model
+Promotion-based multi-repo workflow
+When repo A discovers repo B needs a change:
+
+agent A writes a request artifact
+
+issue text
+
+patch file
+
+branch suggestion
+
+failing test reproduction
+
+repo B’s own agent consumes that request
+
+repo B agent makes the change in its own writable sandbox
+
+promotion script updates read-only snapshots for dependents
+
+This mirrors how human teams should work:
+
+one code owner per repo
+
+cross-repo changes are handed off, not directly edited
+
+Artifact examples
+unified diff
+
+markdown task request
+
+patch queue
+
+generated issue
+
+“promotion repo” with pending requests
+
+This is much better than letting one agent roam.
+
+Practical setup patterns
+Pattern 1 — One writable clone, read-only mirrors
+Use this when cross-repo code reading is needed.
+
+Pros
+
+simple mental model
+
+works with local relative reads
+
+strong protection
+
+Cons
+
+mirrors must be refreshed
+
+tools expecting same-path layouts may need adaptation
+
+Pattern 2 — One writable repo, dependencies through package manager only
+Use this when possible for Rust/JS.
+
+For Rust:
+
+publish or path-convert internal crates into a local registry or vendored directory
+
+agent only touches repo A
+
+repo B is consumed as a released artifact, not as sibling source
+
+Pros
+
+even cleaner boundary
+
+more realistic dependency discipline
+
+Cons
+
+more setup work
+
+may be awkward during active co-development
+
+Pattern 3 — Patch-request broker
+Use when many repos are interdependent.
+
+Agent A cannot touch repo B, but can emit:
+
+{
+  "target_repo": "repo-b",
+  "reason": "need API change for feature X",
+  "proposed_files": ["src/api.rs", "tests/api_test.rs"],
+  "suggested_patch": "..."
+}
+A separate orchestrator routes that to B’s agent.
+
+Pros
+
+scales well
+
+auditable
+
+supports policy
+
+Cons
+
+more orchestration logic
+
+What I would implement first
+Minimal effective version
+If you want this to stop quickly, do this first:
+
+Step 1
+Create a dedicated clone per agent task.
+
+Step 2
+Run each agent in a container.
+
+Step 3
+Mount only:
+
+target repo as rw
+
+other repos as ro snapshots
+
+dedicated tmp/cache as rw
+
+Step 4
+Give the container:
+
+private HOME
+
+no host SSH keys
+
+no Docker socket
+
+repo-scoped or no Git credentials
+
+Step 5
+Add a startup self-check script that prints writable paths.
+
+Example:
+
+echo "Writable mounts:"
+findmnt -no TARGET,OPTIONS | grep rw
+echo "Testing write policy..."
+touch /workspace/repo/.write-test && rm /workspace/repo/.write-test
+touch /deps/repo-b/.write-test 2>/dev/null && echo "ERROR: repo-b writable" && exit 1
+echo "Sandbox OK"
+That catches bad mount configs early.
+
+Example policy harness
+Shell wrapper idea
+#!/usr/bin/env bash
+set -euo pipefail
+
+TARGET_REPO="$1"
+TARGET_PATH="/work/agents/${TARGET_REPO}-rw"
+IMAGE="my-agent-image"
+
+docker run --rm -it \
+  --name "agent-${TARGET_REPO}" \
+  --user "$(id -u):$(id -g)" \
+  --workdir /workspace/repo \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=2g \
+  --tmpfs /run:rw,noexec,nosuid,size=64m \
+  -e HOME=/tmp/home \
+  -e XDG_CACHE_HOME=/tmp/home/.cache \
+  -e CARGO_HOME=/tmp/cargo \
+  -e RUSTUP_HOME=/tmp/rustup \
+  -v "${TARGET_PATH}:/workspace/repo:rw" \
+  -v "/shared/repo-b-mirror:/deps/repo-b:ro" \
+  -v "/shared/repo-c-mirror:/deps/repo-c:ro" \
+  "${IMAGE}"
+Inside the container, the agent only sees what you mounted.
+
+For macOS
+Because you appear to use a Mac sometimes, note:
+
+Docker Desktop or Podman machine is usually the easiest isolation layer
+
+plain macOS filesystem permissions are weaker as an agent boundary than Linux namespace/container isolation
+
+if running agent locally on macOS host, it may still inherit broad access unless sandboxed carefully
+
+So on macOS I would strongly prefer:
+
+containerized agents
+
+or a Linux VM running the harness
+
+Extra hardening
+Read-only top-level plus selective RW bind mounts
+Make the container root filesystem read-only, then add only explicit writable mounts.
+
+Seccomp/AppArmor/SELinux
+Useful for defense in depth, though not the first fix.
+
+Network restrictions
+If the agent does not need network, turn it off.
+If it only needs package mirrors, restrict egress.
+
+Immutable snapshots
+Cross-repo read-only trees can be mounted from content-addressed snapshots so the agent cannot mutate them even accidentally.
+
+Audit logs
+Record:
+
+commands run
+
+files changed
+
+git status before/after
+
+failed write attempts outside allowed tree
+
+That helps prove the policy is working.
+
+What not to rely on
+Do not rely on:
+
+prompt instructions alone
+
+“don’t do that” in system prompts
+
+wrapper scripts alone without OS isolation
+
+one shared Unix account
+
+hiding paths in the UI while leaving them writable
+
+Git hooks alone
+
+These are advisory, not enforcement.
+
+My recommendation
+Best near-term answer
+Implement one container per agent with:
+
+target repo mounted rw
+
+all other repos mounted ro
+
+private HOME, TMPDIR, caches
+
+no inherited host creds
+
+no Docker socket
+
+optional repo-scoped token only for the target repo
+
+And change your workflow so cross-repo changes happen through:
+
+patch requests
+
+issues
+
+promotion artifacts
+
+repo-owner agent handoff
+
+That will stop the behavior at the capability level.
+
+Decision table
+Approach	Strength	Complexity	My view
+Prompt only	Low	Low	Not acceptable
+Separate Unix users only	Medium	Medium	Better, but leaky
+ACLs + users	Medium	Medium	Can work, easy to misconfigure
+Container + RO/RW mounts	High	Medium	Best practical default
+bwrap sandbox	High	Medium	Excellent on Linux
+Full VM per agent	Very high	High	Best isolation, more overhead
+Concrete next move
+If you want the shortest path to relief:
+
+pick Docker/Podman or bubblewrap
+
+give each agent exactly one writable repo mount
+
+convert all sibling repos to read-only mirrors/snapshots
+
+strip inherited Git/SSH credentials
+
+add a policy self-test before the agent starts
+
+After that, the agent can still want to edit another repo, but it will be unable to.
+
+I can help you design a Linux-first harness for Rust/Cargo multi-repo workspaces next, including handling path dependencies without exposing sibling repos as writable.
+
+Thought for 1m 49s
+You need enforcement at the OS/filesystem level, not stronger wording in prompts.
+
+Restating the requirement
+You want an AI agent to be able to:
+
+write to exactly one local cloned repo
+
+read other repos only if needed
+
+never modify any other repo, even if it decides it should
+
+ideally not push anywhere except maybe its assigned repo
+
+keep working with normal dev tools like git, cargo, npm, tests, etc.
+
+That means the solution must be based on capabilities and permissions, not instructions.
+
+The core design
+The right model is:
+
+One agent = one sandbox
+Inside that sandbox, expose only:
+
+Writable
+the assigned repo
+
+a private temp directory
+
+private caches if needed
+
+Read-only
+other repos
+
+shared dependency mirrors
+
+docs/specs/examples
+
+Not available at all
+your normal home directory
+
+your SSH keys
+
+your global Git credentials
+
+other writable clones
+
+Docker socket
+
+arbitrary parent directories
+
+That way, even if the agent says:
+
+“I know I shouldn’t edit repo B, but I need to fix it.”
+
+the write simply fails.
+
+Best practical approach
+Use a container per agent
+This is the simplest strong solution.
+
+For the agent working on repo-a:
+
+mount repo-a as read-write
+
+mount repo-b, repo-c, etc. as read-only
+
+give it a private HOME
+
+give it private TMPDIR, cache dirs, cargo/npm caches
+
+do not mount your real ~/.ssh or credential store
+
+do not mount host directories broadly like /work as rw
+
+Why your current setup keeps failing
+Because the agent likely has one or more of these:
+
+access to sibling repos via ../..
+
+the same Unix user as you
+
+writable shared directories
+
+global Git credentials
+
+path dependencies pointing at live writable clones
+
+symlink escape paths
+
+a broad workspace mount like /src or /home/mike
+
+As long as the agent can physically reach and write those paths, it eventually will.
+
+Recommended filesystem layout
+Something like this:
+
+/work/
+  agents/
+    repo-a-rw/
+    repo-b-rw/
+  snapshots/
+    repo-a-ro/
+    repo-b-ro/
+    repo-c-ro/
+  cache/
+    cargo-agent-a/
+    cargo-agent-b/
+  tmp/
+    agent-a/
+    agent-b/
+Then:
+
+agent A gets /work/agents/repo-a-rw as rw
+
+agent A gets /work/snapshots/repo-b-ro as ro
+
+agent A gets /work/snapshots/repo-c-ro as ro
+
+Never give agent A direct write access to repo B’s real clone.
+
+Concrete container example
+Here is the pattern:
+
+docker run --rm -it \
+  --name agent-repo-a \
+  --user "$(id -u):$(id -g)" \
+  --workdir /workspace/repo \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=2g \
+  --tmpfs /run:rw,noexec,nosuid,size=64m \
+  -e HOME=/tmp/home \
+  -e TMPDIR=/tmp \
+  -e XDG_CACHE_HOME=/tmp/home/.cache \
+  -e CARGO_HOME=/tmp/cargo \
+  -e RUSTUP_HOME=/tmp/rustup \
+  -v /work/agents/repo-a-rw:/workspace/repo:rw \
+  -v /work/snapshots/repo-b-ro:/deps/repo-b:ro \
+  -v /work/snapshots/repo-c-ro:/deps/repo-c:ro \
+  my-agent-image
+What this gives you
+container root fs is read-only
+
+only /workspace/repo is writable source
+
+/deps/repo-b and /deps/repo-c cannot be modified
+
+temp and caches are private
+
+the agent cannot roam into your whole machine unless you mounted it
+
+Git credential containment
+Even if filesystem isolation is correct, also fix Git.
+
+Do not let the agent inherit your real Git environment
+Inside the sandbox:
+
+private HOME
+
+private .gitconfig
+
+no credential helper unless needed
+
+no SSH key unless needed
+
+ideally no push permissions at all
+
+Example minimal .gitconfig:
+
+[user]
+    name = Agent Repo A
+    email = agent-repo-a@example.invalid
+
+[credential]
+    helper =
+If push is needed, use a repo-scoped token that only works for that one repo.
+
+That way:
+
+agent cannot push to repo B even if it somehow fabricates a commit there
+
+remote damage is also limited
+
+Stronger rule: never expose sibling writable clones
+This is the key operational habit.
+
+Wrong
+/work/repo-a
+/work/repo-b
+/work/repo-c
+and the agent sees all of them.
+
+Better
+/work/agents/repo-a-rw
+/work/snapshots/repo-b-ro
+/work/snapshots/repo-c-ro
+If repo A needs to inspect repo B, it should inspect a read-only snapshot, not B’s live working clone.
+
+How to handle Rust/Cargo path dependencies
+This is often the thing that causes people to leave sibling repos writable.
+
+You have several choices.
+
+Option 1: Read-only source snapshots
+Let Cargo read dependency repo source via path = "/deps/repo-b".
+
+Pros:
+
+simple
+
+close to current workflow
+
+Cons:
+
+if build scripts try to write into dependency trees, they fail
+
+snapshot refresh needed when repo B changes
+
+This is often fine.
+
+Option 2: Vendor or local registry
+Publish internal crates to a local registry or vendor tarballs.
+
+Pros:
+
+clean boundary
+
+repo A depends on artifacts, not live sibling source
+
+Cons:
+
+more setup
+
+slower iteration across repos
+
+Option 3: Patch-request flow
+If repo A needs repo B changed:
+
+repo A agent emits a patch request or issue
+
+repo B’s own agent changes repo B in its own sandbox
+
+then refresh B snapshot for A
+
+This is the most disciplined long-term model.
+
+Promotion model for cross-repo changes
+You mentioned this is a serious recurring problem. The stable fix is to adopt a promotion workflow.
+
+When agent A discovers repo B needs a change
+It should not change B directly.
+
+Instead it creates one of:
+
+a markdown request
+
+a unified diff
+
+an issue payload
+
+a “needs-upstream-change” artifact
+
+a failing test case or reproduction bundle
+
+Then your orchestrator hands that off to repo B’s agent.
+
+This mirrors proper code ownership and keeps repo boundaries real.
+
+Extra hardening
+1. Use a different Unix user per agent
+Helpful as defense-in-depth.
+
+2. Do not mount parent directories
+Mount only the exact repo path and exact read-only dependency paths.
+
+3. Watch for symlinks
+A symlink inside repo A pointing outside the sandbox can create surprises.
+
+Mitigation:
+
+reject or inspect external symlinks
+
+avoid broad mounts
+
+keep the sandbox small
+
+4. Use private caches
+Set:
+
+HOME
+
+TMPDIR
+
+XDG_CACHE_HOME
+
+CARGO_HOME
+
+RUSTUP_HOME
+
+npm_config_cache
+
+Otherwise tools may write into shared global locations.
+
+5. Remove Docker socket
+If the agent can reach /var/run/docker.sock, it may effectively escape the sandbox.
+
+6. Disable networking when not needed
+If the task doesn’t need network, turn it off.
+
+What not to rely on
+These are not sufficient by themselves:
+
+system prompts
+
+“do not edit other repos” instructions
+
+wrapper scripts alone
+
+git hooks alone
+
+a shared Unix account
+
+hiding folders in the UI
+
+trust in the agent admitting mistakes afterward
+
+Those are advisory. You want enforced inability.
+
+Minimal implementation plan
+If you want this fixed quickly, do these in order:
+
+Phase 1 — Stop the damage now
+run each agent in a container
+
+mount only one repo as rw
+
+mount all other repos as ro snapshots
+
+private HOME
+
+no inherited SSH/Git creds
+
+Phase 2 — Make it usable
+add per-agent caches
+
+add scripts to refresh read-only snapshots
+
+add a startup self-test to verify what is writable
+
+Phase 3 — Make it scalable
+cross-repo patch request handoff
+
+repo-scoped tokens
+
+audit logging of changed files and failed write attempts
+
+Simple startup self-test
+Before the agent begins, run something like this:
+
+set -e
+
+echo "Checking writable target repo..."
+touch /workspace/repo/.write_test
+rm /workspace/repo/.write_test
+
+echo "Checking forbidden repo writes..."
+if touch /deps/repo-b/.write_test 2>/dev/null; then
+  echo "ERROR: repo-b is writable"
+  exit 1
+fi
+
+echo "Sandbox OK"
+This catches bad mount configuration immediately.
+
+Recommendation
+For your case, I would do this:
+
+Final recommendation
+Containerize every agent
+
+One writable repo per container
+
+Everything else read-only or absent
+
+Private home/temp/cache
+
+No shared host credentials
+
+No push rights except maybe repo-scoped credentials for its own repo
+
+Cross-repo changes go through a handoff artifact, not direct edits
+
+That is the cleanest practical answer and it will actually stop the behavior.
+
+If you want, I can draft a Linux-first harness next for your multi-repo Rust workflow, including:
+
+a directory layout
+
+Docker/Podman launch scripts
+
+snapshot refresh scripts
+
+Cargo path-dependency handling
+
+agent handoff files for cross-repo changes
+
+
+I'm thinking simpler, more expedient.  I have an Arch linux system. I can create multiple user accounts each with their own home.  They can use read-only clone to create their own copy (copies).  One agent, using my account with my credentials could manage pull requests for completed changes from each user/repo.  I trust that the one agent can coordinate changes.  Each worker agent will have no credentials, no push capability, no write access to other repos.  a worker can create changes/commits in their private copy, with little impact (other than drift).
+
+Thought for a couple of seconds
+Yes — that is much simpler, and it is a good expedient design.
+
+You are basically moving from:
+
+“try to make one user behave”
+
+to:
+
+“give each worker its own Unix identity and its own writable sandbox”
+
+That is a real security/control boundary, and on Arch Linux it is very workable.
+
+Restating the design
+Your proposed model is:
+
+Coordinator agent
+runs under your account
+
+has credentials
+
+can review, cherry-pick, merge, push, create PRs
+
+is the only actor allowed to affect remotes
+
+Worker agents
+each runs as a separate Unix user
+
+each has:
+
+its own home directory
+
+its own writable working copy of one repo
+
+no Git credentials
+
+no push access
+
+no write access to other repos
+
+can make local commits in their own copy
+
+drift is acceptable until promoted by the coordinator
+
+That is a good design because it matches actual code ownership and keeps the dangerous capability concentrated in one place.
+
+Why this is a good expedient approach
+Benefits
+1. Easy to understand
+Each worker has:
+
+one user
+
+one repo
+
+one home
+
+no credentials
+
+That is easy to reason about and easy to inspect.
+
+2. Good enough isolation
+If permissions are set correctly, a worker physically cannot modify another worker’s repo.
+
+3. No remote damage
+Because workers have no credentials:
+
+no push
+
+no PR creation
+
+no accidental remote branch spam
+
+4. Low tooling overhead
+You do not need to introduce containers immediately.
+
+5. Good staging model
+Workers produce local commits.
+Coordinator promotes selected changes.
+
+That is clean.
+
+Main risks to address
+This design is solid, but there are a few places it can still leak if you do not lock them down.
+
+1. Shared group permissions
+If all worker repos are under a shared group with write enabled, the isolation fails.
+
+2. Parent directory traversal
+If workers can write to common parent directories, they may rename, replace, or manipulate paths around their repo.
+
+3. Shared caches and config
+If workers share writable cache locations, they may interfere with each other indirectly.
+
+4. sudo leakage
+Workers must not have sudo, wheel membership, or inherited escalation paths.
+
+5. Your own account as daily driver
+If you sometimes run a worker agent “just this once” as yourself, you break the model.
+
+The coordinator account must stay special.
+
+6. Read-only clones that are not actually read-only
+A clone that is merely “intended” to be read-only but still writable by the worker is not safe enough.
+
+Recommended architecture
+Filesystem layout
+Something like this:
+
+/srv/agents/
+  worker-a/
+    home/
+    repo-main/
+  worker-b/
+    home/
+    repo-other/
+  readonly/
+    repo-shared-1.git/
+    repo-shared-2.git/
+  promote/
+    inbox/
+    reviewed/
+Or alternatively:
+
+/home/worker-a/
+/home/worker-b/
+/var/lib/agent-repos/worker-a/repo-main
+/var/lib/agent-repos/worker-b/repo-other
+/var/lib/agent-readonly/repo-x
+/var/lib/agent-readonly/repo-y
+I prefer keeping repo storage outside normal human home directories unless there is a reason not to.
+
+User/account model
+One Unix user per worker
+Example:
+
+agent_repo_a
+
+agent_repo_b
+
+agent_repo_c
+
+Each gets:
+
+unique UID
+
+private home
+
+private shell environment
+
+no SSH keys
+
+no saved Git credentials
+
+no access to your account
+
+One coordinator user
+That can simply be your account if you are disciplined about it.
+
+This account:
+
+has the GitHub credentials
+
+has write/push authority
+
+reads worker output
+
+creates PRs
+
+Permission model
+This is the important part.
+
+Worker repo ownership
+For worker A:
+
+owned by agent_repo_a
+
+no one else writable except root
+
+worker B has no write
+
+your coordinator account may have read, and possibly write if you want direct promotion workflows
+
+Example shape:
+
+chown -R agent_repo_a:agent_repo_a /srv/agents/worker-a/repo-main
+chmod -R u+rwX,go-rwx /srv/agents/worker-a/repo-main
+That gives:
+
+owner read/write
+
+no permissions for group/other
+
+Read-only shared repos
+If worker A needs to inspect repo B or shared dependency repos:
+
+owned by root
+
+writable only by root
+
+world-readable or ACL-readable
+
+not writable by any worker
+
+Example:
+
+chown -R root:root /srv/agents/readonly/repo-shared-1
+chmod -R a=rX,u+w /srv/agents/readonly/repo-shared-1
+More explicitly and safely:
+
+chown -R root:root /srv/agents/readonly/repo-shared-1
+find /srv/agents/readonly/repo-shared-1 -type d -exec chmod 755 {} \;
+find /srv/agents/readonly/repo-shared-1 -type f -exec chmod 644 {} \;
+That ensures workers can read but not modify.
+
+Best promotion flow
+Your idea of one trusted coordinator agent is good. I would make the handoff explicit.
+
+Worker output
+A worker can produce:
+
+local commits
+
+a patch file
+
+a branch name in its private clone
+
+a summary note
+
+a test result log
+
+Coordinator flow
+Coordinator agent:
+
+inspects worker repo
+
+runs tests
+
+cherry-picks or exports patch
+
+applies to an integration clone under your account
+
+pushes branch
+
+creates PR
+
+That keeps the dangerous operations centralized.
+
+Better than letting the coordinator directly work in the worker repo
+I would recommend the coordinator not treat the worker repo as the source of truth.
+
+Instead:
+
+Preferred
+worker repo is a proposal workspace
+
+coordinator has a separate clean integration clone
+
+coordinator imports changes using:
+
+git format-patch
+
+git cherry-pick
+
+git diff
+
+bundle/patch artifacts
+
+That reduces contamination and makes review easier.
+
+Suggested Git workflow
+Worker
+Worker can do:
+
+git checkout -b task/foo
+# edits
+git add ...
+git commit -m "Implement foo"
+No push.
+
+Coordinator
+Coordinator can inspect and import with:
+
+git -C /srv/agents/worker-a/repo-main log --oneline --decorate
+git -C /srv/agents/worker-a/repo-main format-patch -1 HEAD --stdout > /tmp/worker-a.patch
+git -C /home/mike/integration/repo-main am /tmp/worker-a.patch
+Or, if trusted and simpler:
+
+git -C /home/mike/integration/repo-main remote add worker-a /srv/agents/worker-a/repo-main
+git -C /home/mike/integration/repo-main fetch worker-a
+git -C /home/mike/integration/repo-main cherry-pick worker-a/task/foo
+This is a nice balance: workers stay isolated, but coordinator can still import their commits efficiently.
+
+How to set up the users
+On Arch Linux, conceptually:
+
+Create worker users
+sudo useradd -m -d /home/agent_repo_a -s /bin/bash agent_repo_a
+sudo useradd -m -d /home/agent_repo_b -s /bin/bash agent_repo_b
+Then lock down:
+
+no password login unless needed
+
+no wheel group
+
+no SSH authorized keys
+
+no credentials stored
+
+You can even use /usr/bin/git-shell or another restricted shell later, but normal shell is okay if the filesystem permissions are correct.
+
+Home directory hygiene
+Each worker home should be private:
+
+chmod 700 /home/agent_repo_a
+chmod 700 /home/agent_repo_b
+Inside each home:
+
+private .gitconfig
+
+no credential helper
+
+private caches
+
+private temp dirs if needed
+
+Minimal .gitconfig for workers:
+
+[user]
+    name = Worker Agent A
+    email = worker-agent-a@local.invalid
+
+[credential]
+    helper =
+That avoids accidental credential lookups.
+
+Preventing remote access
+You said workers will have no credentials. Good. Make that true at multiple layers.
+
+Remove or avoid
+~/.ssh
+
+Git credential helpers
+
+GitHub tokens in env vars
+
+shared netrc files
+
+access to your ssh-agent socket
+
+Also check:
+
+shell init files
+
+Emacs/IDE helpers
+
+inherited environment from service managers
+
+If workers need to clone
+You mentioned read-only clone to create their own copies.
+
+That works in two ways.
+
+Option 1: You prepare the clones
+This is safer.
+
+Coordinator or root creates worker clones and assigns ownership.
+
+Pros:
+
+workers do not need network auth
+
+consistent layout
+
+easier control
+
+Option 2: workers clone from local read-only mirrors
+Also fine.
+
+For example:
+
+maintain a local bare mirror as root or coordinator
+
+workers clone from that local mirror
+
+no network credentials needed
+
+Example pattern:
+
+git clone --mirror git@github.com:org/repo-main.git /srv/git-mirrors/repo-main.git
+git clone /srv/git-mirrors/repo-main.git /srv/agents/worker-a/repo-main
+That is a very good setup.
+
+Stronger separation with local mirrors
+This complements your idea nicely.
+
+Good pattern
+coordinator maintains local bare mirrors of upstream repos
+
+workers clone from those mirrors
+
+workers never contact GitHub directly
+
+coordinator refreshes mirrors and pushes reviewed work
+
+This gives you:
+
+no worker credentials
+
+less network complexity
+
+reproducible local source of truth
+
+Handling drift
+You already called out drift as acceptable. That is reasonable.
+
+There are really two kinds.
+
+1. Local drift inside worker repo
+Fine. It is just proposal state.
+
+2. Drift from upstream main
+Also manageable.
+
+Coordinator can periodically:
+
+reset worker branch to fresh upstream
+
+re-clone worker workspace
+
+ask worker agent to rebase conceptually by redoing work on fresh clone
+
+Given that these are agents, often fresh clone + replay task is simpler than delicate rebasing.
+
+Practical policy
+I would define these rules:
+
+Workers may
+read their own repo
+
+write their own repo
+
+commit locally
+
+read explicitly allowed shared repos or mirrors
+
+Workers may not
+push
+
+fetch from remote directly unless you explicitly allow it
+
+write any sibling repo
+
+access your credentials
+
+access your home directory
+
+Coordinator may
+fetch/update mirrors
+
+inspect worker repos
+
+import changes
+
+run integration tests
+
+push branches
+
+create PRs
+
+That is very clean.
+
+Best expedient improvement beyond permissions
+Even without containers, one more useful safeguard is:
+
+Separate top-level directories per worker with restrictive modes
+Example:
+
+/srv/agents/worker-a
+/srv/agents/worker-b
+with:
+
+chmod 700 /srv/agents/worker-a
+chmod 700 /srv/agents/worker-b
+That way worker A cannot even list worker B’s area.
+
+Then put read-only shared repos elsewhere, such as:
+
+/srv/agent-readonly/repo-x
+/srv/agent-readonly/repo-y
+with 755 or ACL-based read access.
+
+This is better than putting everything in one common parent.
+
+My assessment
+Is this good enough?
+Yes, for an expedient Linux-first solution, absolutely.
+
+It is much better than continuing to rely on prompts.
+
+Is it perfect?
+No. Containers or namespaces are stronger.
+
+But your proposed user/account model is:
+
+practical
+
+understandable
+
+auditable
+
+easy to implement quickly
+
+likely sufficient for the problem you described
+
+My recommended version of your plan
+Keep
+one trusted coordinator agent under your account
+
+worker agents as separate Unix users
+
+no credentials for workers
+
+no push for workers
+
+one writable repo per worker
+
+Add
+root-owned read-only mirrors
+
+strict directory ownership and 700 homes/work areas
+
+per-worker .gitconfig with no credential helper
+
+coordinator integration clone separate from worker repos
+
+patch/cherry-pick promotion instead of direct “work in place”
+
+What I would do first
+In order:
+
+create one Unix user per worker
+
+create one private work directory per worker with 700
+
+create or copy exactly one writable repo per worker
+
+create root-owned read-only mirrors/snapshots for any shared repos
+
+strip worker credentials and credential helpers
+
+make coordinator import patches into a clean integration clone
+
+only coordinator pushes and opens PRs
+
+That gets you most of the benefit with little machinery.
+
+If you want, I can next draft a concrete Arch Linux setup recipe with:
+
+useradd commands
+
+directory layout
+
+chmod/chown/ACL examples
+
+local mirror setup
+
+worker clone bootstrap script
+
+coordinator promotion script using format-patch/cherry-pick
+
+
+ show a simple script I can run with sudo that creates a user (e.g. deva1, deva2, devb1, devh1, etc.  Each user will have a ~/github dir with group read permissions so that deva1 could clone /home/deva1/github/sw-embed/sw-cor24-apl for example and other devs could read those dirs (parents, repo).  So I think I just need a user account with a home dir, a mkdir and chmod for github root dir.  Not much else, right?
+
+Thought for a couple of seconds
+Yes — for the first cut, that is basically enough.
+
+What you need
+For each worker user:
+
+create the Unix account with a home directory
+
+create ~/github
+
+make the home directory private enough
+
+make ~/github and repos under it owner-writable, group-readable
+
+put all dev users into a shared group so they can read each other’s repo trees
+
+keep files not world-readable
+
+do not give sudo, credentials, or shared writable group perms
+
+The one thing I would add is:
+
+Use a shared group
+For example: devread
+
+Then:
+
+every worker user is in devread
+
+each home stays 750
+
+each ~/github stays 2750
+
+repos/directories inside can be 2750
+
+files can be 640
+
+That gives:
+
+owner: read/write
+
+group: read/enter
+
+others: none
+
+So deva1 can write only their own stuff, while deva2, devb1, etc. can read it.
+
+Important detail about home directory permissions
+If you leave /home/deva1 as 700, nobody else can traverse it, so they cannot reach /home/deva1/github/....
+
+So if you want cross-user read access to repos under home directories, use:
+
+chmod 750 /home/deva1
+That allows members of the shared group to traverse the home and read allowed subdirs.
+
+Simple sudo script
+Here is a straightforward script you can run as root or with sudo.
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   sudo ./create-dev-users.sh deva1 deva2 devb1 devh1
+#
+# Behavior:
+# - creates shared group "devread" if missing
+# - creates each user if missing
+# - ensures each user is in devread
+# - creates ~/github
+# - sets permissions so other devread members can read/traverse
+# - owner can write; group cannot write
+
+SHARED_GROUP="devread"
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: sudo $0 user1 [user2 ...]"
+  exit 1
+fi
+
+if ! getent group "${SHARED_GROUP}" >/dev/null; then
+  echo "Creating group: ${SHARED_GROUP}"
+  groupadd "${SHARED_GROUP}"
+fi
+
+for user_name in "$@"; do
+  home_dir="/home/${user_name}"
+  github_dir="${home_dir}/github"
+
+  if id "${user_name}" >/dev/null 2>&1; then
+    echo "User already exists: ${user_name}"
+  else
+    echo "Creating user: ${user_name}"
+    useradd -m -s /bin/bash "${user_name}"
+  fi
+
+  echo "Adding ${user_name} to group ${SHARED_GROUP}"
+  usermod -a -G "${SHARED_GROUP}" "${user_name}"
+
+  echo "Creating ${github_dir}"
+  mkdir -p "${github_dir}"
+
+  echo "Setting ownership"
+  chown -R "${user_name}:${SHARED_GROUP}" "${home_dir}"
+
+  echo "Setting permissions on ${home_dir}"
+  chmod 750 "${home_dir}"
+
+  echo "Setting permissions on ${github_dir}"
+  chmod 2750 "${github_dir}"
+
+  echo "Done with ${user_name}"
+  echo
+done
+
+echo "All requested users processed."
+echo
+echo "Recommended next step:"
+echo "  Log out/in for group membership to fully apply to interactive sessions."
+Why 2750 on ~/github?
+The leading 2 sets the setgid bit on the directory.
+
+That means new subdirectories/files created under ~/github tend to inherit the directory’s group, which is helpful for keeping things readable by the shared group.
+
+So if deva1 clones into:
+
+/home/deva1/github/sw-embed/sw-cor24-apl
+the group is more likely to stay devread instead of drifting to deva1.
+
+One more thing: Git clones and umask
+Your script gets the base directory right, but new files inside cloned repos also need usable permissions.
+
+If a user has a restrictive umask like 077, then other group members may not be able to read cloned files even though the directory group is right.
+
+Recommended worker umask
+Use:
+
+umask 027
+That gives new files roughly:
+
+files: 640
+
+dirs: 750
+
+Which is exactly what you want:
+
+owner writable
+
+group readable/traversable
+
+others none
+
+You can set that in each worker’s shell profile.
+
+For example, append this to each user’s ~/.bashrc:
+
+umask 027
+If you want, the script can do that too.
+
+Slightly better version
+This version also sets umask 027 in .bashrc if it is not already there.
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+SHARED_GROUP="devread"
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: sudo $0 user1 [user2 ...]"
+  exit 1
+fi
+
+if ! getent group "${SHARED_GROUP}" >/dev/null; then
+  echo "Creating group: ${SHARED_GROUP}"
+  groupadd "${SHARED_GROUP}"
+fi
+
+for user_name in "$@"; do
+  home_dir="/home/${user_name}"
+  github_dir="${home_dir}/github"
+  bashrc="${home_dir}/.bashrc"
+
+  if id "${user_name}" >/dev/null 2>&1; then
+    echo "User already exists: ${user_name}"
+  else
+    echo "Creating user: ${user_name}"
+    useradd -m -s /bin/bash "${user_name}"
+  fi
+
+  usermod -a -G "${SHARED_GROUP}" "${user_name}"
+
+  mkdir -p "${github_dir}"
+
+  chown "${user_name}:${SHARED_GROUP}" "${home_dir}"
+  chown "${user_name}:${SHARED_GROUP}" "${github_dir}"
+
+  chmod 750 "${home_dir}"
+  chmod 2750 "${github_dir}"
+
+  touch "${bashrc}"
+  if ! grep -q '^[[:space:]]*umask[[:space:]]\+027[[:space:]]*$' "${bashrc}"; then
+    echo "" >> "${bashrc}"
+    echo "# Shared-read repo permissions for agent workspaces" >> "${bashrc}"
+    echo "umask 027" >> "${bashrc}"
+  fi
+
+  chown "${user_name}:${user_name}" "${bashrc}"
+
+  echo "Configured ${user_name}"
+done
+
+echo
+echo "Done."
+echo "Users should start a new login shell for new group membership and umask to apply."
+What this does not yet do
+This is a good first step, but it does not yet handle:
+
+removing Git credentials
+
+disabling push
+
+protecting against access outside ~/github
+
+ACLs for finer control
+
+per-user read-only mirrors
+
+service wrappers to run agents as the correct user
+
+Those can come later.
+
+Is “not much else” enough?
+For the filesystem isolation part, yes, this is enough to get started.
+
+The minimum viable setup is:
+
+per-user account
+
+shared read-only group
+
+750 home
+
+2750 github root
+
+umask 027
+
+That gives you the important property:
+
+each user can write their own repos
+
+other dev users can read but not write
+
+Recommended test after setup
+After creating deva1 and deva2:
+
+As deva1
+su - deva1
+mkdir -p ~/github/sw-embed/sw-cor24-apl
+echo hello > ~/github/sw-embed/sw-cor24-apl/test.txt
+mkdir -p ~/github/sw-embed/sw-cor24-apl/src
+As deva2
+su - deva2
+cat /home/deva1/github/sw-embed/sw-cor24-apl/test.txt
+touch /home/deva1/github/sw-embed/sw-cor24-apl/should_fail.txt
+Expected:
+
+cat works
+
+touch fails with permission denied
+
+That is the behavior you want.
+
+If you want, I can give you a slightly more complete Arch setup script next that also:
+
+creates the shared sw-embed org-style subdir,
+
+strips worker Git credential helpers,
+
+and installs a tiny run-as-worker wrapper for launching an agent under the right user.
+
+
+So I need a script that creates several devxx accounts, each with its .bashrc, mkdir/chmod as you recommended. Each user should be in the devgroup.  There are no github credentials at all.  All repos are public and cloned via https with no push access since each user has no ssh-key registered on github.   Need some scripts that validate setup.  Each dev will need some api key or will authenticate via web to use claude, codex, gemini, or opencode/z.ai.    Explain your other concerns
+
+Thought for a couple of seconds
+You want a simple multi-user worker setup on Arch Linux with:
+
+several devxx accounts
+
+one shared read-only group such as devgroup
+
+each user with:
+
+home directory
+
+.bashrc
+
+~/github
+
+each user can write only their own repos
+
+all other devs can read/traverse those repos
+
+no GitHub SSH keys, no push access
+
+validation scripts to confirm permissions and behavior
+
+later, each dev may authenticate separately to Claude, Codex, Gemini, OpenCode/Z.ai
+
+That is a sound first implementation.
+
+High-level design
+Security model
+This gives you a filesystem boundary, which is the important part:
+
+deva1 owns /home/deva1/...
+
+deva2 can read selected paths inside it via shared group permissions
+
+deva2 cannot write there
+
+no worker has GitHub credentials
+
+only local damage is possible, and only within that worker’s own writable tree
+
+Nonfunctional goals
+You care about:
+
+fast to set up
+
+easy to inspect
+
+predictable permissions
+
+low operational complexity
+
+good enough isolation for agent workers
+
+easy validation and repair
+
+That suggests:
+
+standard Unix users
+
+one shared group
+
+consistent umask
+
+simple validation scripts
+
+minimal hidden magic
+
+Important concerns beyond the basic script
+You asked to explain the other concerns. These are the main ones.
+
+1. Home directory traversal
+If other devs need to read /home/deva1/github/..., then /home/deva1 cannot be 700. It must be something like 750.
+
+That means other members of devgroup can traverse the home directory. They still cannot list or read files that are not group-readable, but it is worth understanding.
+
+Implication
+Anything in ~ that is accidentally group-readable may be visible to other dev users.
+
+Mitigation
+Keep sensitive per-user material out of group-readable paths and use sane permissions:
+
+home: 750
+
+.bashrc: 640
+
+.config usually 700
+
+~/github: 2750
+
+2. umask consistency
+If a user’s umask is too restrictive, other devs cannot read cloned repo files.
+If it is too permissive, too much becomes visible.
+
+Recommended
+Use:
+
+umask 027
+That usually yields:
+
+files: 640
+
+directories: 750
+
+That is exactly the owner-write / group-read pattern you want.
+
+3. Git may not preserve desired permissions automatically
+A clone created under ~/github will inherit the directory group more reliably if ~/github has the setgid bit set.
+
+That is why I recommended:
+
+chmod 2750 ~/github
+Without that, group ownership may drift.
+
+4. Credential leakage is broader than GitHub SSH keys
+You already said no GitHub credentials and no SSH keys. Good. But agent tools may also stash credentials in:
+
+shell environment variables
+
+~/.config/...
+
+browser sessions
+
+local token files
+
+editor integrations
+
+service auth caches
+
+Implication
+If a worker uses a web login or API key for Claude/Codex/Gemini/OpenCode, that credential becomes part of that Unix account’s trust boundary.
+
+Mitigation
+That is actually fine if:
+
+each worker has its own account
+
+home directories are not world-readable
+
+configs default to private permissions
+
+you accept that a worker can use its own model credentials inside its own account
+
+This is a separate concern from repo write isolation.
+
+5. Public HTTPS clone means no push, but not necessarily no network activity
+Because repos are public and workers clone via HTTPS with no credentials:
+
+no push to GitHub
+
+no PR creation
+
+no authenticated repo mutation
+
+That is good.
+
+But they can still:
+
+fetch upstream changes
+
+talk to model providers
+
+download packages
+
+exfiltrate local source if the agent is malicious or misconfigured
+
+If you are only solving cross-repo write protection, this is fine.
+If you also care about data exfiltration, that is a different control problem.
+
+6. Shared group means shared read visibility
+Because all workers are in devgroup, they can read each other’s approved repo trees.
+
+That is intentional in your design, but it means:
+
+prompts
+
+logs
+
+scratch files
+
+notes
+
+generated artifacts
+
+should not live in group-readable locations unless you want that.
+
+Recommendation
+Use:
+
+~/github for share-readable repo content
+
+~/.local/share/agent-private, ~/.config, ~/tmp-private, etc. as 700
+
+7. Agents can still damage their own repo copies
+This is acceptable in your design, but worth stating clearly.
+
+A worker can:
+
+delete its own clone
+
+rewrite its own history
+
+corrupt its own working tree
+
+create drift
+
+That is okay because the worker clone is a proposal workspace, not the source of truth.
+
+8. API/web auth per user
+This is compatible with your design.
+
+Two patterns
+API key in env or config
+Pros:
+
+scriptable
+
+easy for CLI tools
+
+Cons:
+
+key can leak into shell history, process list, logs, dotfiles if careless
+
+Web login per Unix user
+Pros:
+
+no raw API key in shell env
+
+often easier for browser-based tools
+
+Cons:
+
+browser/session state lives under that account
+
+more moving parts
+
+Recommendation
+For worker users, prefer:
+
+per-user config files with 600 permissions
+
+avoid exporting secrets globally in .bashrc
+
+use a dedicated file sourced by the tool launcher, not by every shell
+
+Example:
+
+~/.config/agent-secrets/env
+chmod 600
+and source that only in the worker-launch script.
+
+Recommended implementation
+Below are three scripts:
+
+create-dev-users.sh — creates/configures users
+
+validate-dev-users.sh — validates permissions/config
+
+probe-cross-access.sh — performs real cross-user read/write tests
+
+1) create-dev-users.sh
+Run this with sudo.
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Usage:
+#   sudo ./create-dev-users.sh deva1 deva2 devb1 devh1
+#
+# Creates:
+# - shared group: devgroup
+# - each user with home dir and bash shell
+# - ~/github with shared-read permissions
+# - sane .bashrc additions
+#
+# Permission model:
+# - /home/user           => 750
+# - /home/user/github    => 2750
+# - umask                => 027
+#
+# Result:
+# - owner can write
+# - devgroup can read/traverse
+# - others have no access
+
+GROUP_NAME="devgroup"
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: sudo $0 user1 [user2 ...]"
+  exit 1
+fi
+
+if ! getent group "${GROUP_NAME}" >/dev/null; then
+  echo "Creating group ${GROUP_NAME}"
+  groupadd "${GROUP_NAME}"
+fi
+
+for user_name in "$@"; do
+  home_dir="/home/${user_name}"
+  github_dir="${home_dir}/github"
+  bashrc="${home_dir}/.bashrc"
+
+  if id "${user_name}" >/dev/null 2>&1; then
+    echo "User exists: ${user_name}"
+  else
+    echo "Creating user: ${user_name}"
+    useradd -m -s /bin/bash "${user_name}"
+  fi
+
+  echo "Adding ${user_name} to ${GROUP_NAME}"
+  usermod -a -G "${GROUP_NAME}" "${user_name}"
+
+  echo "Creating ${github_dir}"
+  mkdir -p "${github_dir}"
+
+  # Home belongs to user, primary group remains user's own group.
+  chown "${user_name}:${user_name}" "${home_dir}"
+  chmod 750 "${home_dir}"
+
+  # github dir belongs to user:devgroup so cross-dev reads work consistently.
+  chown "${user_name}:${GROUP_NAME}" "${github_dir}"
+  chmod 2750 "${github_dir}"
+
+  # .bashrc baseline
+  touch "${bashrc}"
+  chown "${user_name}:${user_name}" "${bashrc}"
+  chmod 640 "${bashrc}"
+
+  if ! grep -q '^[[:space:]]*umask[[:space:]]\+027[[:space:]]*$' "${bashrc}"; then
+    cat >> "${bashrc}" <<'EOF'
+
+# Shared-read repo permissions for dev accounts
+umask 027
+
+# Keep private configs private by default
+mkdir -p "$HOME/.config" "$HOME/.local" "$HOME/.cache"
+chmod 700 "$HOME/.config" "$HOME/.local" "$HOME/.cache" 2>/dev/null || true
+EOF
+  fi
+
+  # Optional private dirs for agent/tool state
+  install -d -m 700 -o "${user_name}" -g "${user_name}" "${home_dir}/tmp-private"
+  install -d -m 700 -o "${user_name}" -g "${user_name}" "${home_dir}/.config"
+  install -d -m 700 -o "${user_name}" -g "${user_name}" "${home_dir}/.cache"
+  install -d -m 700 -o "${user_name}" -g "${user_name}" "${home_dir}/.local"
+
+  echo "Configured ${user_name}"
+  echo
+done
+
+echo "Done."
+echo "Users should start a fresh login shell for new group membership and umask to apply."
+2) validate-dev-users.sh
+This checks that the accounts and paths look correct.
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+GROUP_NAME="devgroup"
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 user1 [user2 ...]"
+  exit 1
+fi
+
+fail=0
+
+echo "Checking shared group: ${GROUP_NAME}"
+if ! getent group "${GROUP_NAME}" >/dev/null; then
+  echo "ERROR: group ${GROUP_NAME} does not exist"
+  exit 1
+fi
+
+echo
+
+for user_name in "$@"; do
+  home_dir="/home/${user_name}"
+  github_dir="${home_dir}/github"
+  bashrc="${home_dir}/.bashrc"
+
+  echo "=== ${user_name} ==="
+
+  if ! id "${user_name}" >/dev/null 2>&1; then
+    echo "ERROR: user missing"
+    fail=1
+    echo
+    continue
+  fi
+
+  if id -nG "${user_name}" | tr ' ' '\n' | grep -qx "${GROUP_NAME}"; then
+    echo "OK: in ${GROUP_NAME}"
+  else
+    echo "ERROR: not in ${GROUP_NAME}"
+    fail=1
+  fi
+
+  if [[ -d "${home_dir}" ]]; then
+    perms=$(stat -c '%a %U:%G' "${home_dir}")
+    echo "HOME:   ${perms}"
+  else
+    echo "ERROR: home missing"
+    fail=1
+  fi
+
+  if [[ -d "${github_dir}" ]]; then
+    perms=$(stat -c '%a %U:%G' "${github_dir}")
+    echo "GITHUB: ${perms}"
+  else
+    echo "ERROR: github dir missing"
+    fail=1
+  fi
+
+  if [[ -f "${bashrc}" ]]; then
+    perms=$(stat -c '%a %U:%G' "${bashrc}")
+    echo "BASHRC: ${perms}"
+    if grep -q '^[[:space:]]*umask[[:space:]]\+027[[:space:]]*$' "${bashrc}"; then
+      echo "OK: .bashrc sets umask 027"
+    else
+      echo "WARN: .bashrc missing umask 027"
+    fi
+  else
+    echo "ERROR: .bashrc missing"
+    fail=1
+  fi
+
+  echo
+done
+
+exit "${fail}"
+3) probe-cross-access.sh
+This does an actual behavioral test. Run as root/sudo.
+
+It will:
+
+create a probe repo-like path under user A
+
+verify user B can read
+
+verify user B cannot write
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 2 ]]; then
+  echo "Usage: sudo $0 owner_user other_user"
+  exit 1
+fi
+
+owner_user="$1"
+other_user="$2"
+
+owner_home="/home/${owner_user}"
+probe_dir="${owner_home}/github/probe-org/probe-repo"
+probe_file="${probe_dir}/README.txt"
+
+echo "Creating probe tree as ${owner_user}"
+sudo -u "${owner_user}" mkdir -p "${probe_dir}"
+sudo -u "${owner_user}" bash -lc "umask 027; echo 'probe from ${owner_user}' > '${probe_file}'"
+
+echo
+echo "Testing read as ${other_user}"
+if sudo -u "${other_user}" cat "${probe_file}" >/dev/null; then
+  echo "OK: ${other_user} can read ${probe_file}"
+else
+  echo "FAIL: ${other_user} cannot read ${probe_file}"
+  exit 2
+fi
+
+echo
+echo "Testing write denial as ${other_user}"
+if sudo -u "${other_user}" bash -lc "echo denied-test > '${probe_dir}/SHOULD_NOT_WRITE.txt'" 2>/dev/null; then
+  echo "FAIL: ${other_user} was able to write into ${probe_dir}"
+  exit 3
+else
+  echo "OK: ${other_user} cannot write into ${probe_dir}"
+fi
+
+echo
+echo "Probe complete."
+How to use
+Create users
+sudo ./create-dev-users.sh deva1 deva2 devb1 devh1
+Validate setup
+./validate-dev-users.sh deva1 deva2 devb1 devh1
+Probe cross-access
+sudo ./probe-cross-access.sh deva1 deva2
+sudo ./probe-cross-access.sh deva2 devb1
+What to expect from actual clone behavior
+If deva1 clones into:
+
+/home/deva1/github/sw-embed/sw-cor24-apl
+then with:
+
+~/github set to 2750
+
+umask 027
+
+you should get roughly:
+
+directories: group-readable/traversable
+
+files: group-readable
+
+only deva1 writable
+
+That satisfies your main goal.
+
+Recommendations for model-provider auth
+You said each dev will need some API key or web auth for Claude, Codex, Gemini, or OpenCode/Z.ai.
+
+Recommended pattern
+Keep secrets out of .bashrc.
+
+Why:
+
+.bashrc is for every shell
+
+easier to accidentally echo/export/log secrets
+
+harder to rotate and audit
+
+Better
+Per-user secret file:
+
+~/.config/agent-secrets/env
+chmod 600
+Example contents:
+
+export ANTHROPIC_API_KEY='...'
+export OPENAI_API_KEY='...'
+export GEMINI_API_KEY='...'
+Then your launcher script for that user can do:
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+secret_file="$HOME/.config/agent-secrets/env"
+[[ -f "$secret_file" ]] && . "$secret_file"
+
+exec your-agent-command "$@"
+That keeps credentials:
+
+per user
+
+not world/group readable
+
+not automatically present in every shell unless you choose to load them
+
+If using web auth
+That is also okay. Just remember:
+
+browser/session state is stored inside that Unix account
+
+protect ~/.config, browser profile dirs, etc. with 700
+
+My remaining concerns
+These are not blockers, just things to keep in mind.
+
+Concern 1: Shared-read means more than repo source if you are careless
+If a worker leaves notes/logs/scripts inside ~/github, other workers can read them.
+
+Rule of thumb
+share-readable content goes under ~/github
+
+private operational content goes under private dirs like:
+
+~/.config
+
+~/tmp-private
+
+~/.local/share
+all at 700
+
+Concern 2: Browser-based auth expands the account’s trust surface
+If a worker logs into a provider in a browser, the account now holds:
+
+cookies
+
+tokens
+
+cached sessions
+
+That is okay, but it means each worker account becomes a meaningful credential boundary, not just a repo sandbox.
+
+Concern 3: This does not stop network exfiltration
+It stops cross-repo writes well.
+It does not stop an agent from reading accessible files and sending content to a remote model provider.
+
+If your main problem is “agent edits the wrong repo,” your design is good.
+If you later want to control “agent sends source to provider X,” that requires separate network/data policies.
+
+Concern 4: Group-readable home traversal is intentional, but broad
+Because /home/deva1 is 750, other devgroup members can traverse it.
+That is required for your repo-reading design.
+Just be disciplined about what else lives in home.
+
+Bottom line
+Your approach is good for the problem you are trying to solve:
+
+Yes, create the devxx users
+
+Yes, put them all in devgroup
+
+Yes, use ~/github
+
+Yes, use 750 on home, 2750 on ~/github, umask 027
+
+Yes, keep model credentials per-user and private
+
+Yes, add validation scripts so you can test read-vs-write behavior
+
+That gives you a simple, inspectable, effective first barrier against cross-repo edits.
+
+If you want, I can turn the three scripts above into a single setup bundle with:
+
+create
+
+validate
+
+repair/fix-perms
+
+optional per-user launcher stubs for Claude/Codex/Gemini/OpenCode.
+
+
+Alright, I need to simplify this, document this, back this up, and make it portable across dev systems.  I hear your concerns about ~ and cross-user access.  So, here's what I'm thinking.  A new private repo under my softwarerighter github, that I clone (git@ r/w) to some mount point: /mnt/disk2/github/softwarewrighter/devgroup with all the documentation and scripts to set up each user.  Each user is in the devgroup group.  Each user will have a normal /home/dev<xx>/ dir with normal/default (r/o) permissions.  All shared work will be under /mnt/disk2/github/softwarewrighter/devgroup/work/dev<xx>/github/sw-embed/sw-cor24-*. repos that are https r/o clones.  everything under work will be shared r/o across all devxx accounts (r/w by mike only).   How can we ensure that whenver a user dev<xx> clones (r/o) a repo under work/devxx/github/org/repo that it is read/search accessible by all group members?  The mike user maintains its own set of r/w git repos and its coordinating agent is responisble for pulling commits/branches from r/o clones to the r/w clones and pushing from there (or creating a pull-request and merging that).  What am I missing?
+
+Thought for a couple of seconds
+Your revised design is much better. It separates:
+
+private user homes from shared workspaces
+
+worker-readable shared trees from Mike-owned writable trees
+
+coordination/promotion from worker editing
+
+portable setup docs/scripts from ad hoc machine-local tweaks
+
+That is the right direction.
+
+Restating the target architecture
+You want:
+
+Source-of-truth admin repo
+A private repo like:
+
+/mnt/disk2/github/softwarewrighter/devgroup
+owned and maintained by mike, containing:
+
+setup docs
+
+bootstrap scripts
+
+validation scripts
+
+repair scripts
+
+policy docs
+
+maybe launcher scripts for each worker account
+
+Worker accounts
+Users like:
+
+deva1
+
+deva2
+
+devb1
+
+devh1
+
+Each has:
+
+a normal /home/devxx
+
+private/default home permissions
+
+no GitHub write credentials
+
+no need for cross-user home traversal
+
+Shared worker area
+Under:
+
+/mnt/disk2/github/softwarewrighter/devgroup/work/devxx/github/<org>/<repo>
+Workers do their repo work there.
+
+Shared read policy
+Everything under work/ is:
+
+writable by mike
+
+readable/searchable by all devgroup users
+
+not writable by worker users except perhaps in explicitly assigned areas, depending on final model
+
+Coordinator model
+mike maintains separate writable clones and coordinates:
+
+pulling worker-local commits/branches
+
+applying/cherry-picking/merging into writable clones
+
+pushing
+
+opening PRs
+
+merging if desired
+
+That is a solid architecture.
+
+First important clarification
+There is one key ambiguity in your description:
+
+“everything under work will be shared r/o across all devxx accounts (r/w by mike only)”
+
+But you also said:
+
+“whenever a user dev<xx> clones (r/o) a repo under work/devxx/github/org/repo…”
+
+A worker cannot both:
+
+perform a clone into that directory, and
+
+have the whole work/ tree be read-only.
+
+So you need to choose one of these two operating models.
+
+Two viable models
+Model A — Worker-writable private subtrees, group-readable everywhere
+This is the one I recommend.
+
+Example:
+
+/mnt/disk2/github/softwarewrighter/devgroup/work/deva1/...
+/mnt/disk2/github/softwarewrighter/devgroup/work/deva2/...
+Permissions:
+
+deva1 can write under work/deva1
+
+all devgroup users can read/traverse work/deva1
+
+deva2 cannot write under work/deva1
+
+mike can read/write everywhere
+
+This lets a worker:
+
+clone
+
+edit
+
+commit
+
+create local branches
+
+And everyone else can inspect the results.
+
+This matches your original worker-agent idea best.
+
+Model B — Mike-owned shared tree, workers read-only
+In this model:
+
+mike creates/refreshes all clones
+
+workers cannot clone or edit there
+
+workers only inspect those trees
+
+actual worker edits must happen somewhere else, like private temp/work dirs
+
+This is workable, but then work/devxx/... is not really the worker’s editable repo location.
+
+So if workers are meant to make local commits, Model B alone is not enough.
+
+Recommendation
+Use Model A:
+
+Under work/
+For each worker subtree:
+
+owner = that worker
+
+group = devgroup
+
+directories = 2750
+
+files = 640
+
+umask 027
+
+That gives:
+
+owner write
+
+group read/search
+
+others none
+
+Then let mike have ACL-based or root-level write across all worker trees if needed.
+
+This gives you the property you want:
+
+workers cannot edit other workers’ trees
+
+workers can inspect other workers’ results
+
+coordinator can promote changes
+
+How to ensure clones are group-readable
+This is the core implementation question.
+
+You need three things:
+
+1. Parent directories must be group-traversable
+Every directory in the path must allow group execute/search:
+
+For example:
+
+/mnt
+/mnt/disk2
+/mnt/disk2/github
+/mnt/disk2/github/softwarewrighter
+/mnt/disk2/github/softwarewrighter/devgroup
+/mnt/disk2/github/softwarewrighter/devgroup/work
+/mnt/disk2/github/softwarewrighter/devgroup/work/deva1
+/mnt/disk2/github/softwarewrighter/devgroup/work/deva1/github
+...
+For shared access, these need at least:
+
+owner rwx
+
+group r-x
+
+Typically 750 or 2750.
+
+2. The per-worker repo root should be setgid
+Example:
+
+chmod 2750 /mnt/disk2/github/softwarewrighter/devgroup/work/deva1
+chmod 2750 /mnt/disk2/github/softwarewrighter/devgroup/work/deva1/github
+The setgid bit (2) helps ensure newly created subdirs inherit group devgroup.
+
+Without this, Git-created directories may end up in the worker’s private primary group instead.
+
+3. Worker umask must be 027
+When deva1 runs git clone, Git creates files/dirs using normal process umask.
+
+Use:
+
+umask 027
+That usually results in:
+
+dirs: 750
+
+files: 640
+
+So all devgroup users can read/traverse, but not write.
+
+This is the simplest reliable mechanism.
+
+Example permission scheme
+Assume:
+
+group: devgroup
+
+workers: deva1, deva2, ...
+
+coordinator: mike
+
+Shared base
+chgrp devgroup /mnt/disk2/github/softwarewrighter/devgroup
+chmod 2750 /mnt/disk2/github/softwarewrighter/devgroup
+
+chgrp devgroup /mnt/disk2/github/softwarewrighter/devgroup/work
+chmod 2750 /mnt/disk2/github/softwarewrighter/devgroup/work
+Worker subtree
+mkdir -p /mnt/disk2/github/softwarewrighter/devgroup/work/deva1/github
+chown -R deva1:devgroup /mnt/disk2/github/softwarewrighter/devgroup/work/deva1
+chmod 2750 /mnt/disk2/github/softwarewrighter/devgroup/work/deva1
+chmod 2750 /mnt/disk2/github/softwarewrighter/devgroup/work/deva1/github
+Then in deva1’s shell:
+
+umask 027
+Now when deva1 does:
+
+git clone https://github.com/sw-embed/sw-cor24-apl.git \
+  /mnt/disk2/github/softwarewrighter/devgroup/work/deva1/github/sw-embed/sw-cor24-apl
+you should get:
+
+directories readable/searchable by group
+
+files readable by group
+
+only deva1 writable
+
+What Mike is missing / what to think through
+There are several design points you should decide now.
+
+1. Does Mike need direct write access to worker trees?
+If the coordinator will only read/import from worker repos, Mike does not need direct write access there.
+
+That is cleaner.
+
+If Mike wants to clean up, repair, or reset worker trees without sudo, then add ACLs so Mike has rwx on all worker subtrees.
+
+Recommended
+Give Mike rwx via ACL, but do not make Mike the owner.
+
+Example:
+
+setfacl -m u:mike:rwx /mnt/disk2/github/softwarewrighter/devgroup/work/deva1
+setfacl -R -m u:mike:rwx /mnt/disk2/github/softwarewrighter/devgroup/work/deva1
+setfacl -d -m u:mike:rwx /mnt/disk2/github/softwarewrighter/devgroup/work/deva1
+That makes recovery easier.
+
+2. Will workers need to fetch/pull from GitHub?
+With public HTTPS clones, yes, they can fetch without credentials.
+
+That is fine, but remember:
+
+workers can update their clones independently
+
+worker view may drift from Mike’s writable integration clone
+
+reproducibility becomes less centralized
+
+Two choices
+Let workers fetch directly
+Simpler, more autonomous.
+
+Or Mike maintains local mirrors, workers clone from local mirrors
+More controlled, more portable, better if multiple dev systems share similar setup.
+
+For portability and repeatability, I would lean toward local bare mirrors managed by Mike.
+
+Example:
+
+/mnt/disk2/github/softwarewrighter/devgroup/mirrors/sw-embed/sw-cor24-apl.git
+Workers clone from that path, not GitHub directly.
+
+Pros:
+
+no internet required after refresh
+
+consistent source snapshot
+
+easy to back up
+
+lower external dependency
+
+3. Where do private agent/tool secrets live?
+You wisely moved shared repo work out of home directories. Good.
+
+But each worker account may still need:
+
+API keys
+
+browser session data
+
+Claude/Codex config
+
+logs
+
+scratch files
+
+These should not go under shared work/....
+
+They should stay private under /home/devxx/..., such as:
+
+/home/deva1/.config/...
+/home/deva1/.cache/...
+/home/deva1/.local/share/...
+/home/deva1/tmp-private/...
+So:
+
+work/... = share-readable code/work product
+
+/home/devxx/... = private operational state
+
+This is one of the biggest advantages of your new layout.
+
+4. Git “safe.directory” may appear
+If Mike or another user reads/manipulates repos owned by another Unix user, modern Git may complain about “dubious ownership”.
+
+That is normal.
+
+Options
+only the owning worker runs Git in that repo
+
+Mike imports patches/refs from outside rather than treating worker trees as normal working repos
+
+or Mike adds specific repos to safe.directory
+
+Example:
+
+git config --global --add safe.directory /mnt/disk2/github/softwarewrighter/devgroup/work/deva1/github/sw-embed/sw-cor24-apl
+I would avoid blanket wildcards and instead keep Mike’s integration clones separate.
+
+5. How exactly will promotion happen?
+This is the most important workflow detail after permissions.
+
+There are several ways:
+
+Option A — format-patch / am
+Worker produces commits, Mike imports patches.
+
+Pros:
+
+explicit
+
+auditable
+
+good for clean handoff
+
+Option B — add worker repo as remote and fetch
+Mike’s writable clone adds worker repo as a remote path.
+
+Example:
+
+git remote add deva1 /mnt/disk2/.../work/deva1/github/sw-embed/sw-cor24-apl
+git fetch deva1
+git cherry-pick deva1/branchname
+Pros:
+
+easy
+
+preserves commits/branches
+
+Option C — bundle artifacts
+Worker exports a git bundle, Mike imports it.
+
+Good for portability/backups, but maybe overkill here.
+
+Recommendation
+Use Option B for convenience, with Option A available when you want explicit review artifacts.
+
+6. Do workers need isolated temporary working space outside repo trees?
+Probably yes.
+
+Some tools write:
+
+temp files
+
+model outputs
+
+caches
+
+lock files
+
+browser state
+
+logs
+
+Keep that private in home:
+
+/home/devxx/tmp-private
+/home/devxx/.cache
+/home/devxx/.config
+Do not put such noise into shared work/ unless intentionally shareable.
+
+7. What about filesystem mount options?
+Because this lives under /mnt/disk2, check:
+
+ownership persistence
+
+filesystem type
+
+ACL support
+
+Unix permissions support
+
+mount options like noacl, noperm, unusual umasks
+
+If this is ext4/xfs/btrfs on Arch, usually fine.
+If it is exFAT/NTFS or something unusual, Unix permission semantics may be awkward.
+
+This is worth validating early.
+
+8. Backup strategy
+Since you explicitly want this documented, backed up, and portable:
+
+Back up at least these separately:
+
+A. Devgroup admin repo
+Contains scripts/docs/policy. This is critical.
+
+B. Worker repo trees
+Not source of truth, but useful for in-progress work and forensic review.
+
+C. Mike’s writable integration clones
+These are promotion staging areas.
+
+D. Local mirrors, if you use them
+These improve reproducibility.
+
+E. Home-directory private configs for workers
+Only if needed for preserving tool auth/state. Be careful with secrets.
+
+Suggested directory layout
+I would make it explicit and slightly broader than only work/.
+
+/mnt/disk2/github/softwarewrighter/devgroup/
+  docs/
+  scripts/
+  templates/
+  mirrors/
+    sw-embed/
+      sw-cor24-apl.git
+      sw-cor24-basic.git
+  work/
+    deva1/
+      github/
+        sw-embed/
+          sw-cor24-apl/
+    deva2/
+      github/
+        sw-embed/
+          sw-cor24-basic/
+  validation/
+  backups/
+And separately:
+
+/home/deva1/
+/home/deva2/
+/home/devb1/
+This is portable and self-documenting.
+
+The most likely missing piece
+The biggest thing you may be missing is this:
+
+The worker subtree should be writable by the worker, not read-only to all workers
+If you truly want workers to clone, edit, and commit in:
+
+work/devxx/github/org/repo
+then that worker’s subtree cannot be globally read-only.
+
+It must be:
+
+owner-write
+
+group-read
+
+not:
+
+group-read-only for everyone including owner
+
+So the right rule is:
+
+Under work/devxx
+owner = devxx
+
+group = devgroup
+
+mode = 2750 on directories
+
+worker umask 027
+
+This gives exactly the desired behavior.
+
+Recommended policy summary
+Home directories
+private/default
+
+no cross-user repo access via home
+
+keep credentials/private tool state here
+
+Shared code workspace
+under /mnt/disk2/.../devgroup/work
+
+each worker has its own owned subtree
+
+all worker subtrees readable by devgroup
+
+only owner (and maybe Mike via ACL) can write
+
+Mike coordinator
+maintains writable source-of-truth clones separately
+
+imports worker changes
+
+pushes and creates PRs
+
+optionally maintains mirrors
+
+Bottom line
+Your plan is good. The main adjustments I recommend are:
+
+Keep
+central devgroup repo with docs/scripts
+
+shared workspace under /mnt/disk2/.../devgroup/work
+
+private homes
+
+Mike-owned coordination flow
+
+public HTTPS read-only worker clones
+
+Add/clarify
+each work/devxx subtree should be owned by that worker, not Mike
+
+everything under that subtree should be group-readable, not group-writable
+
+enforce with:
+
+chown devxx:devgroup
+
+chmod 2750 on directories
+
+umask 027
+
+consider Mike ACLs for recovery/admin
+
+consider local mirrors for portability and backup
+
+keep secrets/session/tool state in /home/devxx, not under work/
+
+That should give you a clean, portable, documented setup.
+
+I can next draft:
+
+a directory-and-permission spec for the repo docs,
+
+a bootstrap script for creating users and worker subtrees under /mnt/disk2/.../devgroup/work, and
+
+a validation script that checks clone readability and cross-user write denial.
+
+
+Okay, this repo can have (under gitignored work dir) a set of bare git repos for devxx agents to clone from (instead of github).  each agent will have write access to only its own work/devxx dir (and subdirs).  mike has write access to bare repos and github credentials and r/w cloned repos.    Create a script to set up this repo as I described.  Remaining issues?
+
+Thought for a couple of seconds
+You want this repo to become the portable control plane for your dev-worker setup:
+
+the repo itself contains docs/scripts/policy
+
+under a gitignored area, it also contains:
+
+bare repos used as local clone sources for workers
+
+per-worker work trees
+
+each devxx user can write only under work/devxx/...
+
+all workers can read/search shared worker trees
+
+mike has:
+
+GitHub credentials
+
+writable integration clones
+
+write access to bare repos
+
+responsibility for sync, promotion, push, and PRs
+
+That is coherent and much cleaner than using homes for shared repo access.
+
+High-level design
+Repo layout
+Inside your checked-out admin repo, something like:
+
+devgroup/
+  docs/
+  scripts/
+  templates/
+  .gitignore
+  work/              # gitignored
+    bare/
+      sw-embed/
+        sw-cor24-apl.git/
+    deva1/
+      github/
+        sw-embed/
+          sw-cor24-apl/
+    deva2/
+      github/
+        sw-embed/
+          sw-cor24-basic/
+Access model
+work/bare/...
+owner/group writable by mike
+
+group-readable by devgroup
+
+workers can clone/fetch from these
+
+workers cannot modify them
+
+work/devxx/...
+owned by that worker user
+
+group = devgroup
+
+directories setgid and group-readable
+
+worker can write
+
+others can read/search but not write
+
+This is the right model.
+
+What the setup script should do
+The script should:
+
+ensure shared Unix group exists, e.g. devgroup
+
+ensure all listed worker users exist and are in devgroup
+
+ensure mike is in devgroup
+
+create repo-local work/ layout
+
+create:
+
+work/bare
+
+work/devxx/github
+
+set ownership and permissions
+
+install worker shell defaults like umask 027
+
+ensure .gitignore ignores work/
+
+optionally initialize bare repos from public upstreams
+
+Script
+Below is a single setup script intended to live in your admin repo, for example:
+
+scripts/setup-devgroup.sh
+Run it with sudo from the root of your checked-out admin repo.
+
+scripts/setup-devgroup.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Portable devgroup workspace bootstrap
+#
+# Run from the root of the checked-out admin repo, for example:
+#   cd /mnt/disk2/github/softwarewrighter/devgroup
+#   sudo ./scripts/setup-devgroup.sh \
+#     --group devgroup \
+#     --admin mike \
+#     --users deva1,deva2,devb1,devh1
+#
+# Optional:
+#   --init-bare sw-embed/sw-cor24-apl=https://github.com/sw-embed/sw-cor24-apl.git
+#   --init-bare sw-embed/sw-cor24-basic=https://github.com/sw-embed/sw-cor24-basic.git
+
+GROUP_NAME="devgroup"
+ADMIN_USER="mike"
+USERS_CSV=""
+declare -a INIT_BARE_SPECS=()
+
+usage() {
+  cat <<EOF
+Usage:
+  sudo $0 --users user1,user2,... [--group devgroup] [--admin mike]
+          [--init-bare org/repo=https://github.com/org/repo.git ...]
+
+Options:
+  --group       Shared unix group for workers and admin (default: devgroup)
+  --admin       Coordinator/admin user (default: mike)
+  --users       Comma-separated worker user list (required)
+  --init-bare   Optional bare repo spec; may be repeated
+  --help        Show this help
+
+Example:
+  sudo $0 \
+    --group devgroup \
+    --admin mike \
+    --users deva1,deva2,devb1 \
+    --init-bare sw-embed/sw-cor24-apl=https://github.com/sw-embed/sw-cor24-apl.git \
+    --init-bare sw-embed/sw-cor24-basic=https://github.com/sw-embed/sw-cor24-basic.git
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --group)
+      GROUP_NAME="$2"
+      shift 2
+      ;;
+    --admin)
+      ADMIN_USER="$2"
+      shift 2
+      ;;
+    --users)
+      USERS_CSV="$2"
+      shift 2
+      ;;
+    --init-bare)
+      INIT_BARE_SPECS+=("$2")
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+if [[ -z "${USERS_CSV}" ]]; then
+  echo "ERROR: --users is required" >&2
+  usage
+  exit 2
+fi
+
+if [[ ! -d .git ]]; then
+  echo "ERROR: Run this from the root of the checked-out admin git repo." >&2
+  exit 2
+fi
+
+REPO_ROOT="$(pwd)"
+WORK_ROOT="${REPO_ROOT}/work"
+BARE_ROOT="${WORK_ROOT}/bare"
+
+IFS=',' read -r -a USERS <<< "${USERS_CSV}"
+
+require_user_exists() {
+  local user_name="$1"
+  if ! id "${user_name}" >/dev/null 2>&1; then
+    echo "Creating user: ${user_name}"
+    useradd -m -s /bin/bash "${user_name}"
+  else
+    echo "User exists: ${user_name}"
+  fi
+}
+
+ensure_group_exists() {
+  if ! getent group "${GROUP_NAME}" >/dev/null; then
+    echo "Creating group: ${GROUP_NAME}"
+    groupadd "${GROUP_NAME}"
+  else
+    echo "Group exists: ${GROUP_NAME}"
+  fi
+}
+
+ensure_user_in_group() {
+  local user_name="$1"
+  if id -nG "${user_name}" | tr ' ' '\n' | grep -qx "${GROUP_NAME}"; then
+    echo "User ${user_name} already in ${GROUP_NAME}"
+  else
+    echo "Adding ${user_name} to ${GROUP_NAME}"
+    usermod -a -G "${GROUP_NAME}" "${user_name}"
+  fi
+}
+
+ensure_bashrc_umask() {
+  local user_name="$1"
+  local home_dir
+  home_dir="$(getent passwd "${user_name}" | cut -d: -f6)"
+  local bashrc="${home_dir}/.bashrc"
+
+  touch "${bashrc}"
+  chown "${user_name}:${user_name}" "${bashrc}"
+  chmod 640 "${bashrc}"
+
+  if ! grep -q '^[[:space:]]*umask[[:space:]]\+027[[:space:]]*$' "${bashrc}"; then
+    cat >> "${bashrc}" <<'EOF'
+
+# devgroup worker default: owner write, group read/search, others none
+umask 027
+EOF
+  fi
+}
+
+ensure_private_home_dirs() {
+  local user_name="$1"
+  local home_dir
+  home_dir="$(getent passwd "${user_name}" | cut -d: -f6)"
+
+  chmod 750 "${home_dir}"
+  install -d -m 700 -o "${user_name}" -g "${user_name}" "${home_dir}/.config"
+  install -d -m 700 -o "${user_name}" -g "${user_name}" "${home_dir}/.cache"
+  install -d -m 700 -o "${user_name}" -g "${user_name}" "${home_dir}/.local"
+  install -d -m 700 -o "${user_name}" -g "${user_name}" "${home_dir}/tmp-private"
+}
+
+ensure_gitignore_has_work() {
+  local gitignore="${REPO_ROOT}/.gitignore"
+  touch "${gitignore}"
+
+  if ! grep -qx 'work/' "${gitignore}"; then
+    echo "Adding work/ to .gitignore"
+    printf '\nwork/\n' >> "${gitignore}"
+  fi
+}
+
+setup_shared_roots() {
+  echo "Creating shared work roots"
+  mkdir -p "${BARE_ROOT}"
+
+  # Shared roots: mike/admin writable, group searchable/readable
+  chown -R "${ADMIN_USER}:${GROUP_NAME}" "${WORK_ROOT}"
+  chmod 2750 "${WORK_ROOT}"
+  chmod 2750 "${BARE_ROOT}"
+
+  # Default ACLs help new dirs/files under bare remain readable by group.
+  if command -v setfacl >/dev/null 2>&1; then
+    setfacl -m "u:${ADMIN_USER}:rwx,g:${GROUP_NAME}:rx" "${WORK_ROOT}" "${BARE_ROOT}" || true
+    setfacl -d -m "u:${ADMIN_USER}:rwx,g:${GROUP_NAME}:rx" "${WORK_ROOT}" "${BARE_ROOT}" || true
+  fi
+}
+
+setup_worker_tree() {
+  local user_name="$1"
+  local worker_root="${WORK_ROOT}/${user_name}"
+  local github_root="${worker_root}/github"
+
+  echo "Creating worker tree for ${user_name}: ${worker_root}"
+  mkdir -p "${github_root}"
+
+  # Worker owns only their subtree. Shared group can read/search.
+  chown -R "${user_name}:${GROUP_NAME}" "${worker_root}"
+  chmod 2750 "${worker_root}"
+  chmod 2750 "${github_root}"
+
+  if command -v setfacl >/dev/null 2>&1; then
+    # Ensure mike/admin can recover/repair without sudo if needed.
+    setfacl -m "u:${ADMIN_USER}:rwx,g:${GROUP_NAME}:rx" "${worker_root}" "${github_root}" || true
+    setfacl -d -m "u:${ADMIN_USER}:rwx,g:${GROUP_NAME}:rx" "${worker_root}" "${github_root}" || true
+  fi
+}
+
+init_bare_repo() {
+  local spec="$1"
+  local rel_path="${spec%%=*}"
+  local upstream="${spec#*=}"
+
+  if [[ "${rel_path}" == "${upstream}" ]]; then
+    echo "ERROR: Invalid --init-bare spec: ${spec}" >&2
+    exit 2
+  fi
+
+  local bare_path="${BARE_ROOT}/${rel_path}.git"
+  local bare_parent
+  bare_parent="$(dirname "${bare_path}")"
+
+  mkdir -p "${bare_parent}"
+  chown -R "${ADMIN_USER}:${GROUP_NAME}" "${BARE_ROOT}"
+
+  if [[ -d "${bare_path}" ]]; then
+    echo "Bare repo already exists: ${bare_path}"
+    return 0
+  fi
+
+  echo "Initializing bare mirror: ${bare_path}"
+  sudo -u "${ADMIN_USER}" git clone --bare "${upstream}" "${bare_path}"
+
+  chown -R "${ADMIN_USER}:${GROUP_NAME}" "${bare_path}"
+
+  # Directories readable/searchable by group; files readable by group.
+  find "${bare_path}" -type d -exec chmod 2750 {} +
+  find "${bare_path}" -type f -exec chmod 640 {} +
+
+  if command -v setfacl >/dev/null 2>&1; then
+    setfacl -R -m "u:${ADMIN_USER}:rwX,g:${GROUP_NAME}:rX" "${bare_path}" || true
+    setfacl -R -d -m "u:${ADMIN_USER}:rwX,g:${GROUP_NAME}:rX" "${bare_path}" || true
+  fi
+}
+
+print_next_steps() {
+  cat <<EOF
+
+Setup complete.
+
+Important paths:
+  Admin repo root: ${REPO_ROOT}
+  Shared work root: ${WORK_ROOT}
+  Bare repo root:   ${BARE_ROOT}
+
+Workers:
+$(for u in "${USERS[@]}"; do echo "  - ${u}: ${WORK_ROOT}/${u}/github"; done)
+
+Recommended worker clone pattern:
+  sudo -u deva1 bash -lc 'cd "${WORK_ROOT}/deva1/github" && git clone "${BARE_ROOT}/sw-embed/sw-cor24-apl.git" sw-embed/sw-cor24-apl'
+
+Recommended promotion pattern from mike integration clone:
+  git remote add deva1-apl "${WORK_ROOT}/deva1/github/sw-embed/sw-cor24-apl"
+  git fetch deva1-apl
+  git cherry-pick deva1-apl/<branch>
+
+Note:
+  New group membership takes effect on next login shell for existing sessions.
+EOF
+}
+
+main() {
+  ensure_group_exists
+  require_user_exists "${ADMIN_USER}"
+  ensure_user_in_group "${ADMIN_USER}"
+  ensure_bashrc_umask "${ADMIN_USER}"
+  ensure_private_home_dirs "${ADMIN_USER}"
+
+  for user_name in "${USERS[@]}"; do
+    require_user_exists "${user_name}"
+    ensure_user_in_group "${user_name}"
+    ensure_bashrc_umask "${user_name}"
+    ensure_private_home_dirs "${user_name}"
+  done
+
+  ensure_gitignore_has_work
+  mkdir -p "${WORK_ROOT}"
+  setup_shared_roots
+
+  for user_name in "${USERS[@]}"; do
+    setup_worker_tree "${user_name}"
+  done
+
+  for spec in "${INIT_BARE_SPECS[@]}"; do
+    init_bare_repo "${spec}"
+  done
+
+  print_next_steps
+}
+
+main "$@"
+How to use it
+From your checked-out admin repo:
+
+cd /mnt/disk2/github/softwarewrighter/devgroup
+sudo ./scripts/setup-devgroup.sh \
+  --group devgroup \
+  --admin mike \
+  --users deva1,deva2,devb1,devh1 \
+  --init-bare sw-embed/sw-cor24-apl=https://github.com/sw-embed/sw-cor24-apl.git \
+  --init-bare sw-embed/sw-cor24-basic=https://github.com/sw-embed/sw-cor24-basic.git
+Then a worker clone looks like:
+
+sudo -u deva1 bash -lc '
+  cd /mnt/disk2/github/softwarewrighter/devgroup/work/deva1/github &&
+  mkdir -p sw-embed &&
+  git clone /mnt/disk2/github/softwarewrighter/devgroup/work/bare/sw-embed/sw-cor24-apl.git \
+    sw-embed/sw-cor24-apl
+'
+Why this should preserve shared readability
+The important pieces are:
+
+1. Worker subtree ownership
+work/deva1 is owned by deva1:devgroup
+
+2. Setgid on directories
+chmod 2750 on worker dirs means new subdirs inherit group devgroup
+
+3. umask 027
+New files become group-readable, others denied
+
+That combination is what makes worker-created clones readable/searchable by all group members without making them writable.
+
+Remaining issues
+A few matter.
+
+1. Bare repos are not actually read-only at the Unix level unless you enforce it
+In the script above, bare repos are writable by mike, readable by devgroup.
+
+That is what you asked for, and it is right.
+
+But if any worker ends up with ACL write permission on work/bare, that would be bad. So your validation script should explicitly test that workers cannot write under work/bare.
+
+2. Existing sessions will not see new group membership immediately
+Users already logged in may need:
+
+new login shell
+
+su - user
+
+or logout/login
+
+Otherwise group-based access can appear inconsistent.
+
+3. Git safe.directory warnings
+If mike or another user runs Git inside another user’s working tree, Git may complain about ownership.
+
+That is normal.
+
+Best practice:
+
+the worker owns and uses their tree
+
+mike imports from it in a separate writable integration clone
+
+only add safe.directory selectively when needed
+
+4. Model-provider auth is still a separate trust boundary
+This setup solves cross-repo write control.
+
+It does not solve:
+
+what a worker agent can send over the network
+
+whether source is exfiltrated to a provider
+
+whether browser/API tokens inside a worker account are safe
+
+That is outside the repo-permission model.
+
+For now, keep provider creds under:
+
+/home/devxx/.config/...
+
+mode 600 or dir 700
+
+and not under shared work/.
+
+5. Filesystem type matters
+This design assumes a Unix-permission-friendly filesystem under /mnt/disk2, such as:
+
+ext4
+
+xfs
+
+btrfs
+
+If this is NTFS, exFAT, or some unusual mount with weak ACL support, permissions may not behave as expected.
+
+Check:
+
+mount | grep ' /mnt/disk2 '
+stat -f -c %T /mnt/disk2
+6. Git clone permissions can still drift if tools override modes
+Usually umask 027 + setgid dirs is enough. But some tooling may create extra files with different permissions.
+
+That is why you want a validation and maybe a repair script.
+
+7. Mike’s writable integration clones should stay separate
+Do not use worker trees as the place where mike also edits and pushes.
+Keep separate writable clones for mike under a different root.
+
+That keeps:
+
+worker proposal repos
+
+integration repos
+
+bare source mirrors
+
+as three distinct roles.
+
+8. Local bare clone vs bare mirror
+The script currently uses:
+
+git clone --bare
+That is fine for worker local clone sources.
+
+If you want a stricter mirror of upstream refs, you may later prefer:
+
+git clone --mirror
+Difference:
+
+--bare is enough for ordinary clone-source usage
+
+--mirror mirrors all refs and is better if Mike is using these as upstream-ref caches
+
+For your current use, either is fine. I would lean --mirror later if these are true maintenance mirrors.
+
+What I would add next
+You asked about remaining issues. The biggest missing piece after setup is validation.
+
+You should have a companion script that checks:
+
+each worker can write only under their own work/devxx
+
+other workers can read but not write that subtree
+
+workers cannot write under work/bare
+
+bare repos are cloneable
+
+new clone contents are group-readable
+
+mike can fetch from worker trees
+
+That is the next thing I would implement.
+
+If you want, I can write that validation script next.
+
+
+y
+
+Thought for 6s
+Here is a companion validation script for the setup. It checks:
+
+users and group exist
+
+key directories exist and have sane ownership/modes
+
+each worker can write in their own subtree
+
+another worker can read but not write that subtree
+
+workers cannot write under work/bare
+
+workers can clone from a local bare repo
+
+cloned files come out group-readable
+
+Save this as:
+
+scripts/validate-devgroup.sh
+and run it with sudo from the root of your admin repo.
+
+scripts/validate-devgroup.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+GROUP_NAME="devgroup"
+ADMIN_USER="mike"
+USERS_CSV=""
+TEST_BARE_REL=""   # example: sw-embed/sw-cor24-apl.git
+
+usage() {
+  cat <<EOF
+Usage:
+  sudo $0 --users user1,user2,... [--group devgroup] [--admin mike]
+           [--test-bare org/repo.git]
+
+Options:
+  --group      Shared unix group (default: devgroup)
+  --admin      Admin/coordinator user (default: mike)
+  --users      Comma-separated worker users (required)
+  --test-bare  Relative path under work/bare to use for clone test
+               Example: sw-embed/sw-cor24-apl.git
+  --help       Show this help
+
+Examples:
+  sudo $0 --users deva1,deva2,devb1
+  sudo $0 --users deva1,deva2 --test-bare sw-embed/sw-cor24-apl.git
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --group)
+      GROUP_NAME="$2"
+      shift 2
+      ;;
+    --admin)
+      ADMIN_USER="$2"
+      shift 2
+      ;;
+    --users)
+      USERS_CSV="$2"
+      shift 2
+      ;;
+    --test-bare)
+      TEST_BARE_REL="$2"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 2
+      ;;
+  esac
+done
+
+if [[ -z "${USERS_CSV}" ]]; then
+  echo "ERROR: --users is required" >&2
+  usage
+  exit 2
+fi
+
+if [[ ! -d .git ]]; then
+  echo "ERROR: Run this from the root of the checked-out admin repo." >&2
+  exit 2
+fi
+
+REPO_ROOT="$(pwd)"
+WORK_ROOT="${REPO_ROOT}/work"
+BARE_ROOT="${WORK_ROOT}/bare"
+
+IFS=',' read -r -a USERS <<< "${USERS_CSV}"
+
+FAILURES=0
+WARNINGS=0
+
+pass() { echo "PASS: $*"; }
+warn() { echo "WARN: $*"; WARNINGS=$((WARNINGS + 1)); }
+fail() { echo "FAIL: $*"; FAILURES=$((FAILURES + 1)); }
+
+check_exists() {
+  local path="$1"
+  [[ -e "$path" ]]
+}
+
+check_user() {
+  local u="$1"
+  if id "$u" >/dev/null 2>&1; then
+    pass "user exists: $u"
+  else
+    fail "user missing: $u"
+  fi
+}
+
+check_group() {
+  local g="$1"
+  if getent group "$g" >/dev/null 2>&1; then
+    pass "group exists: $g"
+  else
+    fail "group missing: $g"
+  fi
+}
+
+check_user_in_group() {
+  local u="$1"
+  local g="$2"
+  if id -nG "$u" | tr ' ' '\n' | grep -qx "$g"; then
+    pass "user $u is in group $g"
+  else
+    fail "user $u is NOT in group $g"
+  fi
+}
+
+show_stat() {
+  local path="$1"
+  stat -c '%A %a %U:%G %n' "$path"
+}
+
+check_path() {
+  local label="$1"
+  local path="$2"
+  if [[ -e "$path" ]]; then
+    pass "$label exists: $path"
+    show_stat "$path"
+  else
+    fail "$label missing: $path"
+  fi
+}
+
+check_bashrc_umask() {
+  local u="$1"
+  local home
+  home="$(getent passwd "$u" | cut -d: -f6)"
+  local bashrc="${home}/.bashrc"
+
+  if [[ ! -f "$bashrc" ]]; then
+    fail "$u .bashrc missing: $bashrc"
+    return
+  fi
+
+  if grep -q '^[[:space:]]*umask[[:space:]]\+027[[:space:]]*$' "$bashrc"; then
+    pass "$u .bashrc contains umask 027"
+  else
+    warn "$u .bashrc missing explicit 'umask 027'"
+  fi
+}
+
+write_test_own_tree() {
+  local u="$1"
+  local probe_dir="${WORK_ROOT}/${u}/github/.validate"
+  local probe_file="${probe_dir}/own-write.txt"
+
+  if sudo -u "$u" mkdir -p "$probe_dir" &&
+     sudo -u "$u" bash -lc "umask 027; echo ok > '$probe_file'"; then
+    pass "$u can write in own tree"
+  else
+    fail "$u cannot write in own tree"
+    return
+  fi
+
+  if [[ -f "$probe_file" ]]; then
+    show_stat "$probe_file"
+    local mode
+    mode="$(stat -c '%a' "$probe_file")"
+    case "$mode" in
+      640|660|600)
+        pass "$u probe file has plausible mode: $mode"
+        ;;
+      *)
+        warn "$u probe file mode unusual: $mode"
+        ;;
+    esac
+  else
+    fail "$u probe file missing after write"
+  fi
+}
+
+cross_read_write_test() {
+  local owner="$1"
+  local other="$2"
+
+  local probe_dir="${WORK_ROOT}/${owner}/github/.validate"
+  local probe_file="${probe_dir}/own-write.txt"
+  local denied_file="${probe_dir}/cross-write-should-fail.txt"
+
+  if sudo -u "$other" test -r "$probe_file"; then
+    pass "$other can read $owner shared file"
+  else
+    fail "$other cannot read $owner shared file"
+  fi
+
+  if sudo -u "$other" bash -lc "echo nope > '$denied_file'" 2>/dev/null; then
+    fail "$other WAS able to write into $owner tree"
+  else
+    pass "$other cannot write into $owner tree"
+  fi
+}
+
+bare_write_denial_test() {
+  local u="$1"
+  local probe_dir="${BARE_ROOT}/.validate"
+  mkdir -p "$probe_dir"
+  chown "${ADMIN_USER}:${GROUP_NAME}" "$probe_dir"
+  chmod 2750 "$probe_dir"
+
+  local denied_file="${probe_dir}/${u}-should-fail.txt"
+
+  if sudo -u "$u" bash -lc "echo nope > '$denied_file'" 2>/dev/null; then
+    fail "$u WAS able to write under work/bare"
+  else
+    pass "$u cannot write under work/bare"
+  fi
+}
+
+clone_test() {
+  local u="$1"
+  local rel="$2"
+  local src="${BARE_ROOT}/${rel}"
+  local clone_root="${WORK_ROOT}/${u}/github/.validate-clones"
+  local dest="${clone_root}/$(basename "$rel" .git)"
+
+  if [[ ! -d "$src" ]]; then
+    fail "clone test source bare repo missing: $src"
+    return
+  fi
+
+  sudo -u "$u" mkdir -p "$clone_root"
+  sudo -u "$u" rm -rf "$dest"
+
+  if sudo -u "$u" git clone "$src" "$dest" >/dev/null 2>&1; then
+    pass "$u can clone from local bare repo: $rel"
+  else
+    fail "$u failed to clone from local bare repo: $rel"
+    return
+  fi
+
+  check_path "clone destination" "$dest"
+
+  local sample_file
+  sample_file="$(find "$dest" -type f | head -n 1 || true)"
+  if [[ -n "$sample_file" ]]; then
+    show_stat "$sample_file"
+    if [[ -r "$sample_file" ]]; then
+      pass "sample cloned file exists"
+    fi
+  else
+    warn "no sample file found in cloned repo: $dest"
+  fi
+
+  # Check another worker can read but not write this clone.
+  local other=""
+  for cand in "${USERS[@]}"; do
+    if [[ "$cand" != "$u" ]]; then
+      other="$cand"
+      break
+    fi
+  done
+
+  if [[ -n "$other" ]]; then
+    if sudo -u "$other" test -r "$dest/.git/config"; then
+      pass "$other can read $u cloned repo metadata"
+    else
+      fail "$other cannot read $u cloned repo metadata"
+    fi
+
+    if sudo -u "$other" bash -lc "echo nope > '$dest/WRITE_SHOULD_FAIL.txt'" 2>/dev/null; then
+      fail "$other WAS able to write into $u cloned repo"
+    else
+      pass "$other cannot write into $u cloned repo"
+    fi
+  fi
+}
+
+main() {
+  echo "Repo root:  $REPO_ROOT"
+  echo "Work root:  $WORK_ROOT"
+  echo "Bare root:  $BARE_ROOT"
+  echo
+
+  check_group "$GROUP_NAME"
+  check_user "$ADMIN_USER"
+  check_user_in_group "$ADMIN_USER" "$GROUP_NAME"
+  echo
+
+  check_path "work root" "$WORK_ROOT"
+  check_path "bare root" "$BARE_ROOT"
+  echo
+
+  for u in "${USERS[@]}"; do
+    check_user "$u"
+    check_user_in_group "$u" "$GROUP_NAME"
+
+    local_home="$(getent passwd "$u" | cut -d: -f6)"
+    check_path "home for $u" "$local_home"
+    check_bashrc_umask "$u"
+
+    check_path "worker root for $u" "${WORK_ROOT}/${u}"
+    check_path "worker github root for $u" "${WORK_ROOT}/${u}/github"
+    echo
+  done
+
+  for u in "${USERS[@]}"; do
+    write_test_own_tree "$u"
+  done
+  echo
+
+  if [[ ${#USERS[@]} -ge 2 ]]; then
+    for ((i=0; i<${#USERS[@]}; i++)); do
+      owner="${USERS[$i]}"
+      other="${USERS[$(( (i + 1) % ${#USERS[@]} ))]}"
+      if [[ "$owner" != "$other" ]]; then
+        cross_read_write_test "$owner" "$other"
+      fi
+    done
+    echo
+  else
+    warn "cross-user tests skipped; need at least 2 users"
+    echo
+  fi
+
+  for u in "${USERS[@]}"; do
+    bare_write_denial_test "$u"
+  done
+  echo
+
+  if [[ -n "$TEST_BARE_REL" ]]; then
+    clone_test "${USERS[0]}" "$TEST_BARE_REL"
+    echo
+  else
+    warn "clone test skipped; pass --test-bare org/repo.git to enable it"
+    echo
+  fi
+
+  echo "Validation summary:"
+  echo "  failures: ${FAILURES}"
+  echo "  warnings: ${WARNINGS}"
+
+  if [[ "$FAILURES" -ne 0 ]]; then
+    exit 1
+  fi
+}
+
+main "$@"
+How to run it
+Example:
+
+cd /mnt/disk2/github/softwarewrighter/devgroup
+
+sudo ./scripts/validate-devgroup.sh \
+  --group devgroup \
+  --admin mike \
+  --users deva1,deva2,devb1 \
+  --test-bare sw-embed/sw-cor24-apl.git
+What I would still watch for
+The main remaining issues are these:
+
+1. Filesystem type on /mnt/disk2
+This setup assumes normal Unix permissions and ideally ACL support. If /mnt/disk2 is ext4, xfs, or btrfs, good. If it is exFAT/NTFS, expect trouble.
+
+Check with:
+
+stat -f -c %T /mnt/disk2
+mount | grep ' /mnt/disk2 '
+2. Existing login sessions
+New group membership does not fully apply to already-running shells. Use a fresh login shell when testing.
+
+3. Git “safe.directory”
+If mike runs Git inside a worker-owned repo, Git may complain. Best to keep Mike’s writable integration clones separate and only fetch/cherry-pick from worker trees.
+
+4. Secrets and model auth
+This setup protects repo write boundaries. It does not protect against a worker account leaking code to an external model provider. Keep provider auth private under /home/devxx/.config/..., not under shared work/.
+
+5. Worker subtree policy
+The intended rule should be:
+
+worker owns work/devxx
+
+group can read/search
+
+only worker and Mike/admin can write there
+
+That is the right model for local commits plus coordination.
+
+If you want, I can also write a third script, scripts/repair-devgroup-perms.sh, that re-applies the expected ownership/modes/ACLs after things drift.
+
+
+
+

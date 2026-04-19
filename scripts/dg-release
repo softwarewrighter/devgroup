@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# ------------------------------------------------------------------------------
+# dg-release
+#
+# Coordinator tool (mike only). Merges dev into main for a given repo,
+# optionally tags, and pushes main (and tag) to the bare and to GitHub.
+#
+# Usage:
+#   dg-release <repo>                 # no tag; merge message "Release <short-dev-SHA>"
+#   dg-release <repo> <tag>           # annotated tag; merge message "Release <tag>"
+#
+# Behavior:
+#   - Uses the existing mike-private relay checkout at work/relay/<repo>/
+#     (created by dg-relay on first use). Fails if it doesn't exist — run
+#     dg-relay at least once before releasing.
+#   - Fetches origin (the bare), ensures main and dev are up-to-date.
+#   - If dev is already an ancestor of main, exits cleanly (nothing to release).
+#   - Merges dev into main with --no-ff. Optionally tags.
+#   - Pushes main (and tag) only — no other refs.
+# ------------------------------------------------------------------------------
+
+BASE="/disk1/github/softwarewrighter/devgroup"
+BARE_DIR="${BASE}/work/bare"
+RELAY_DIR="${BASE}/work/relay"
+ADMIN_USER="mike"
+
+if [[ "$(id -un)" != "$ADMIN_USER" ]]; then
+  echo "ERROR: run as $ADMIN_USER (not root/sudo)." >&2
+  exit 1
+fi
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+  echo "usage: dg-release <repo> [tag]" >&2
+  exit 1
+fi
+
+REPO="$1"
+TAG="${2:-}"
+
+BARE="${BARE_DIR}/${REPO}.git"
+RELAY="${RELAY_DIR}/${REPO}"
+
+[[ -d "$BARE" ]]       || { echo "ERROR: no bare at $BARE" >&2; exit 1; }
+[[ -d "$RELAY/.git" ]] || { echo "ERROR: no relay checkout at $RELAY; run dg-relay first" >&2; exit 1; }
+
+cd "$RELAY"
+git fetch origin --prune
+
+git switch main 2>/dev/null || git switch -c main --track origin/main
+git merge --ff-only origin/main
+
+if ! git rev-parse --verify --quiet origin/dev >/dev/null; then
+  echo "ERROR: origin/dev does not exist on the bare. Nothing to release." >&2
+  exit 1
+fi
+
+git switch dev 2>/dev/null || git switch -c dev --track origin/dev
+git branch --set-upstream-to=origin/dev dev >/dev/null 2>&1 || true
+git merge --ff-only origin/dev
+git switch main
+
+if git merge-base --is-ancestor dev main; then
+  echo "==> main is already at or ahead of dev; nothing to release"
+  exit 0
+fi
+
+if [[ -n "$TAG" ]]; then
+  MSG="Release ${TAG}"
+else
+  SHORT=$(git rev-parse --short dev)
+  MSG="Release ${SHORT}"
+fi
+
+echo "==> merging dev into main (--no-ff) with message: ${MSG}"
+git merge --no-ff dev -m "$MSG"
+
+if [[ -n "$TAG" ]]; then
+  echo "==> tagging ${TAG}"
+  git tag -a "$TAG" -m "$MSG"
+fi
+
+echo "==> pushing main -> bare"
+git push origin refs/heads/main:refs/heads/main
+[[ -n "$TAG" ]] && git push origin "refs/tags/${TAG}:refs/tags/${TAG}"
+
+echo "==> pushing bare -> github"
+git -C "$BARE" -c remote.origin.mirror=false \
+    push origin refs/heads/main:refs/heads/main
+if [[ -n "$TAG" ]]; then
+  git -C "$BARE" -c remote.origin.mirror=false \
+      push origin "refs/tags/${TAG}:refs/tags/${TAG}"
+fi
+
+echo
+echo "==> done: ${REPO} released${TAG:+ (tag ${TAG})}"
+echo "   main now: $(git rev-parse --short main)"

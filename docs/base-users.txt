@@ -1,0 +1,10 @@
+# Snapshot of local user accounts BEFORE running setup-devgroup-accounts.sh
+# against scripts/dev-users.tsv. Captured on host 'queenbee.local'.
+#
+# Format: user<TAB>uid<TAB>home<TAB>shell<TAB>note
+
+mike	1000	/home/mike	/usr/bin/bash	admin/integrator — keep
+devh1	1001	/home/devh1	/bin/bash	old naming — delete after new d* accounts are up
+devr1	1002	/home/devr1	/bin/bash	old naming — delete after new d* accounts are up
+devo1	1003	/home/devo1	/bin/bash	old naming — delete after new d* accounts are up
+devp1	1004	/home/devp1	/bin/bash	old naming — delete after new d* accounts are up
