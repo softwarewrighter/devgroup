@@ -89,16 +89,19 @@ for line in "${lines[@]}"; do
     fi
   fi
 
-  # Ensure bare is readable by the devgroup. Without sharedRepository=group,
-  # git writes pack files with mode 0400 — which makes the ACL mask '---'
-  # and nullifies the named-group entry. chmod -R g+rX fixes the mask via
-  # kernel semantics (adds r to all, adds x only where it's already set).
-  # Then `git repack -ad` rewrites packs under sharedRepository=group so new
-  # and future packs are born with correct perms.
+  # Ensure bare is readable by the devgroup. Belt-and-suspenders: (1)
+  # sharedRepository=group should make git create objects group-readable,
+  # but in practice pack-writing paths escape this; (2) chmod -R g+rX fixes
+  # the ACL mask via kernel semantics; (3) a post-receive hook re-chmods
+  # on every future push so new packs can't regress.
   if [[ -d "$target" ]]; then
     git -C "$target" config core.sharedRepository group >/dev/null 2>&1 || true
+    cat > "$target/hooks/post-receive" <<'HOOK'
+#!/bin/sh
+chmod -R g+rX "$(git rev-parse --git-dir)"
+HOOK
+    chmod 0755 "$target/hooks/post-receive"
     chmod -R g+rX "$target" 2>/dev/null || true
-    git -C "$target" repack -ad >/dev/null 2>&1 || true
   fi
 done
 

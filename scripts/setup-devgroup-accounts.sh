@@ -327,11 +327,13 @@ DEVINFO
     else
       echo "    WARNING: $repo_dir exists with content but no .git; leaving alone" >&2
     fi
-  elif [[ ! -e "$repo_dir" ]]; then
-    echo "    bare repo missing, creating empty target dir: $repo_dir"
-    install -d -m 0750 -o "$user" -g "$SHARED_GROUP" "$repo_dir"
-    setfacl -m "u:${user}:rwx,u:${ADMIN_USER}:rwx,g:${SHARED_GROUP}:r-x,o::---,m::rwx" "$repo_dir"
-    setfacl -d -m "u:${user}:rwx,u:${ADMIN_USER}:rwx,g:${SHARED_GROUP}:r-x,o::---,m::rwx" "$repo_dir"
+  else
+    # Bare repo missing. Do NOT create an empty placeholder directory:
+    # that silently masks manifest typos (an agent would then populate the
+    # wrong-named dir, and downstream agents that vendor by the correct name
+    # can't find it). Login will land in ORGROOT instead; once the bare
+    # mirror appears, re-running this script will clone into place.
+    echo "    NOTE: no bare mirror for $primary_repo; skipping clone (planned placeholder or run sync-bare-repos.sh)"
   fi
 }
 
@@ -610,11 +612,111 @@ summarize() {
   echo "  sudo -u ${ADMIN_USER} bash -lc 'dg-list-pr'"
 }
 
+validate_manifest() {
+  # Cross-check the TSV against ground truth BEFORE we mutate any accounts.
+  #
+  # Ground truth sources (in order):
+  #   1. ${BARE_DIR}/<name>.git  -- local bare mirror exists, ready to clone
+  #   2. gh repo list <org>      -- exists on GitHub but no mirror yet
+  #                                 (setup will skip clone; admin must run
+  #                                  sync-bare-repos.sh before agents can use it)
+  #   3. neither                 -- treated as a planned placeholder for a
+  #                                 repo that hasn't been created yet (this
+  #                                 is expected and allowed per project policy)
+  #
+  # Failure mode we're guarding against: a typo in the TSV silently matches
+  # category 3 and the agent's sandbox gets an empty dir at the wrong name.
+  # Heuristic: if the TSV name is a strict prefix of an existing GitHub repo
+  # (e.g., TSV 'sw-cor24-emu' with GitHub 'sw-cor24-emulator') we treat it
+  # as an almost-certain truncation typo and hard-fail. Other near misses
+  # we only surface in the pending-placeholder list for human eyeballing,
+  # since we can't distinguish a future repo from a typo automatically.
+  local manifest="$1"
+  local org="${GH_ORG:-sw-embed}"
+  echo "==> validating manifest against bare mirrors and GitHub org '$org'"
+
+  local gh_available=0
+  local -a gh_names=()
+  if command -v gh >/dev/null 2>&1 \
+     && sudo -u "$ADMIN_USER" -H gh auth status >/dev/null 2>&1; then
+    mapfile -t gh_names < <(
+      sudo -u "$ADMIN_USER" -H gh repo list "$org" --limit 1000 \
+        --json name,isArchived \
+        --jq '.[] | select(.isArchived==false) | .name' 2>/dev/null
+    )
+    gh_available=1
+    echo "    fetched ${#gh_names[@]} non-archived repos from $org"
+  else
+    echo "    WARNING: gh not available or not authenticated as $ADMIN_USER; GitHub typo check disabled" >&2
+  fi
+
+  local ok=0 pending=0 needs_sync=0 typo=0
+  local -a typo_msgs=() sync_msgs=()
+  local user family primary_repo extra
+  while IFS=$'\t' read -r user family primary_repo extra; do
+    [[ -z "${user// }" ]] && continue
+    [[ "${user:0:1}" == "#" ]] && continue
+    [[ -z "${primary_repo:-}" ]] && continue
+
+    if [[ -d "${BARE_DIR}/${primary_repo}.git" ]]; then
+      ok=$((ok+1))
+      continue
+    fi
+
+    local pending_suggestion=""
+    if (( gh_available )); then
+      local in_github=0 prefix_match="" n
+      for n in "${gh_names[@]}"; do
+        if [[ "$n" == "$primary_repo" ]]; then
+          in_github=1
+          break
+        fi
+        # strict-prefix check: GitHub name starts with TSV name AND is longer.
+        # This catches truncation typos like sw-cor24-emu -> sw-cor24-emulator.
+        if [[ "$n" == "${primary_repo}"* ]] && [[ "$n" != "$primary_repo" ]]; then
+          prefix_match="$n"
+        fi
+      done
+
+      if (( in_github )); then
+        sync_msgs+=("$user -> $primary_repo")
+        needs_sync=$((needs_sync+1))
+        continue
+      fi
+
+      if [[ -n "$prefix_match" ]]; then
+        typo_msgs+=("$user: '$primary_repo' -> did you mean '$prefix_match'?")
+        typo=$((typo+1))
+        continue
+      fi
+    fi
+
+    pending=$((pending+1))
+  done < "$manifest"
+
+  echo "    ${ok} ready, ${pending} pending placeholder(s), ${needs_sync} on GitHub but unmirrored, ${typo} likely typo(s)"
+
+  if (( needs_sync > 0 )); then
+    echo "WARNING: the following repos exist on GitHub but have no local bare mirror." >&2
+    echo "         Agents for these users will skip cloning. Run sync-bare-repos.sh as mike" >&2
+    echo "         and re-run this script to materialize the clones:" >&2
+    printf '         - %s\n' "${sync_msgs[@]}" >&2
+  fi
+
+  if (( typo > 0 )); then
+    echo "ERROR: manifest contains ${typo} likely typo(s):" >&2
+    printf '       - %s\n' "${typo_msgs[@]}" >&2
+    echo "       Fix dev-users.tsv (GitHub repo names are authoritative) and re-run." >&2
+    exit 1
+  fi
+}
+
 acl_sanity_check
 ensure_group
 ensure_shared_dirs
 usermod -aG "$SHARED_GROUP" "$ADMIN_USER"
 ensure_system_gitconfig
+validate_manifest "$MANIFEST"
 
 while IFS=$'\t' read -r user family primary_repo extra; do
   [[ -z "${user// }" ]] && continue

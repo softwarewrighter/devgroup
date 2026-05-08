@@ -3,10 +3,11 @@ dcapl	c-lisp	sw-cor24-apl
 dcasm	assembler	sw-cor24-assembler
 dcbas	pascal-ocaml	sw-cor24-basic
 dcdbg	project	sw-cor24-debugger
-dcemu	project	sw-cor24-emu
+dcemu	project	sw-cor24-emulator
 dcfth	assembler	sw-cor24-forth
 dcftn	plsw-prolog	sw-cor24-fortran
 dchla	assembler	sw-cor24-hlasm
+dcisa	project	sw-cor24-isa
 dcmls	c-lisp	sw-cor24-macrolisp
 dcoca	pascal-ocaml	sw-cor24-ocaml
 dcpas	pascal-ocaml	sw-cor24-pascal
@@ -18,7 +19,7 @@ dcrpg	assembler	sw-cor24-rpg-ii
 dcscr	project	sw-cor24-script
 dcsno	plsw-prolog	sw-cor24-snobol4
 dcxas	assembler	sw-cor24-x-assembler
-dcxpa	pascal-ocaml	sw-cor24-x-pcode-aot
+dcxpa	pascal-ocaml	sw-cor24-x-pc-aotc
 dcxru	project	sw-cor24-x-rust
 dcxtc	c-lisp	sw-cor24-x-tinyc
 dcyed	project	sw-cor24-yocto-ed
