@@ -42,7 +42,7 @@ The first shape is preferred (matches the `dcpls-bootstrap-plsw-toolchain` prece
 There is no install script. After `dg-relay` + `dg-release` land the new lgo on `main`, mike runs (from the relay clone):
 
 ```bash
-install -m 0640 -o mike -g devgroup \
+install -m 0640 \
   /disk1/github/softwarewrighter/devgroup/work/relay/sw-cor24-plsw/build/plsw.lgo \
   /disk1/github/softwarewrighter/devgroup/work/lib/cor24/plsw.lgo
 ```

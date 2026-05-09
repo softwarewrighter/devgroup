@@ -40,19 +40,23 @@ Re-emit `build/snobol4.s` → `build/snobol4.{bin,lgo}` using the freshly-instal
 Same shape as the dcpls rebuild — after `dg-relay` + `dg-release` land your `pr/rebuild-snobol4-artifacts`, mike runs (from the relay clone):
 
 ```bash
-install -m 0640 -o mike -g devgroup \
+install -m 0640 \
   /disk1/github/softwarewrighter/devgroup/work/relay/sw-cor24-snobol4/build/snobol4.lgo \
   /disk1/github/softwarewrighter/devgroup/work/lib/cor24/snobol4.lgo
-install -m 0640 -o mike -g devgroup \
+install -m 0640 \
   /disk1/github/softwarewrighter/devgroup/work/relay/sw-cor24-snobol4/build/snobol4.bin \
   /disk1/github/softwarewrighter/devgroup/work/lib/cor24/snobol4.bin
 ```
 
 After that, every d* user's `snobol4` wrapper picks up the rebuilt interpreter on the next invocation.
 
-## Why this isn't urgent (but is unblocking)
+## Why this matters (and to whom)
 
-The current artifacts work for shipped demos (e.g. `web-sw-cor24-fortran` consumes `snobol4.lgo` for runtime, and that's still functional). What this rebuild unlocks is **further work on snobol4 itself** — any saga touching `snoglob.msw` or extending the runtime is currently brushing against the buffer ceiling.
+The current artifacts work for the live demo path (`web-sw-cor24-fortran` consumes the bundled `snobol4.lgo` for runtime; that's still functional). What this rebuild unlocks:
+
+- **dcsno's own runtime work.** Any saga touching `snoglob.msw` or extending the runtime is currently brushing against the buffer ceiling — `sno_main.s` was at 99.96% of `EMIT_BUF_SIZE` (114 bytes free). Step 003 (`builtin-arg-expressions`) of `saga-expr-completeness` was explicitly blocked on this.
+- **dcftn's Fortran-in-SNOBOL4 work.** dcftn's `snobol4/src/normalize.sno` (and any future fortran-compiler.sno) runs on `work/lib/cor24/snobol4.lgo`. The May 9 11:23 build predates today's landings on `sw-cor24-snobol4/main` — `pr/funcall-arithmetic`, `pr/saga-expr-completeness` (negative-int output, parens-around-expressions). Until you rebuild and reinstall, dcftn cannot use those features in their `.sno` code.
+- **All d* users.** Anyone invoking `snobol4` from PATH gets the stale interpreter. Once you rebuild, every wrapper picks up the new lgo on the next invocation.
 
 ## Out of scope
 
