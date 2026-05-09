@@ -18,6 +18,7 @@ dcprl	plsw-prolog	sw-cor24-prolog
 dcrpg	assembler	sw-cor24-rpg-ii
 dcscr	project	sw-cor24-script
 dcsno	plsw-prolog	sw-cor24-snobol4
+dcstk	pascal-ocaml	sw-cor24-smalltalk
 dcxas	assembler	sw-cor24-x-assembler
 dcxpa	pascal-ocaml	sw-cor24-x-pc-aotc
 dcxru	project	sw-cor24-x-rust
@@ -36,6 +37,7 @@ dwpvm	pascal-ocaml	web-sw-cor24-pcode
 dwpls	plsw-prolog	web-sw-cor24-plsw
 dwprl	plsw-prolog	web-sw-cor24-prolog
 dwsno	plsw-prolog	web-sw-cor24-snobol4
+dwstk	pascal-ocaml	web-sw-cor24-smalltalk
 dwxas	assembler	web-sw-cor24-x-assembler
 dwxru	project	web-sw-cor24-x-rust
 dwxtc	c-lisp	web-sw-cor24-x-tinyc
