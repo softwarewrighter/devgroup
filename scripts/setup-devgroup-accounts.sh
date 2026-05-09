@@ -444,24 +444,43 @@ DG_MARK_PR
 
   cat > "${WORK_SCRIPTS_DIR}/dg-list-pr" <<'DG_LIST_PR'
 #!/usr/bin/env bash
+# dg-list-pr: list pending pr/* branches across each agent's PRIMARY repo only.
+#
+# An agent's primary repo is declared in dev-users.tsv (3-column TSV:
+# user<TAB>family<TAB>primary_repo). This script reads the manifest and
+# only inspects <work>/<user>/github/sw-embed/<primary_repo>/, ignoring:
+#   - symlinks to other agents' clones (read-only context)
+#   - sibling clones that exist for Cargo path-deps (e.g. dwxtc has
+#     full clones of sw-cor24-emulator + sw-cor24-isa next to its
+#     primary web-sw-cor24-x-tinyc to satisfy path = "../sw-cor24-X")
+# Branches in those non-primary clones aren't the user's work to ship.
 set -euo pipefail
 ROOT="/disk1/github/softwarewrighter/devgroup/work"
-shopt -s nullglob
+MANIFEST="/disk1/github/softwarewrighter/devgroup/scripts/dev-users.tsv"
+
+if [[ ! -r "$MANIFEST" ]]; then
+  echo "ERROR: cannot read manifest: $MANIFEST" >&2
+  exit 1
+fi
+
 found=0
-for userdir in "$ROOT"/dc* "$ROOT"/dw*; do
-  [[ -d "$userdir/github/sw-embed" ]] || continue
-  for repo in "$userdir"/github/sw-embed/*; do
-    [[ -d "$repo/.git" ]] || continue
-    while IFS= read -r branch; do
-      [[ -z "$branch" ]] && continue
-      found=1
-      printf "%s\t%s\t%s\n" "$(basename "$userdir")" "$(basename "$repo")" "$branch"
-    done < <(
-      git -c safe.directory='*' -C "$repo" \
-        for-each-ref --format='%(refname:short)' refs/heads/pr refs/heads/pr/\*
-    )
-  done
-done
+while IFS=$'\t' read -r user family repo; do
+  [[ "$user" =~ ^# ]] && continue
+  [[ -z "$user" ]] && continue
+  CLONE="$ROOT/$user/github/sw-embed/$repo"
+  [[ -L "$CLONE" ]] && continue
+  [[ -d "$CLONE" ]] || continue
+  [[ -d "$CLONE/.git" ]] || continue
+  while IFS= read -r branch; do
+    [[ -z "$branch" ]] && continue
+    found=1
+    printf "%s\t%s\t%s\n" "$user" "$repo" "$branch"
+  done < <(
+    git -c safe.directory='*' -C "$CLONE" \
+      for-each-ref --format='%(refname:short)' refs/heads/pr refs/heads/pr/\*
+  )
+done < "$MANIFEST"
+
 if [[ "$found" -eq 0 ]]; then
   echo "No local pr branches found."
 fi
