@@ -56,12 +56,16 @@ Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq
 | `dcemu-lgo-load-binary-merge.md` | dcemu | dcsno | ✅ shipped; cor24-emu reinstalled |
 | `dcemu-remove-internal-assembler.md` | dcemu | mike | ✅ |
 | `dcftn-fortran-hello-world.md` | dcftn | mike | ✅ shipped (Path A); `fortran` wrapper on PATH |
+| `dcftn-fti-m1-resume.md` | dcftn | mike | 🔵 in flight on `feat/m1-resume`; SNOBOL4 nested-call fix unblocks inline IDENT(SUBSTR(...)) |
 | `dcpls-bootstrap-goldens.md` | dcpls | mike | ✅ shipped; `just test` is now a green CI gate |
 | `dcpls-bootstrap-plsw-toolchain.md` | dcpls | mike | ✅ |
+| `dcpls-rebuild-plsw-lgo.md` | dcpls | mike | 🟢 ready (rebuild `plsw.lgo` against `c7e1262` so `pl-sw` actually emits `.zero N`) |
 | `dcsno-bootstrap-snobol4-toolchain.md` | dcsno | mike | ✅ shipped; `snobol4.lgo` + wrapper on PATH |
+| `dcsno-claude-md-snolib-drift.md` | dcsno | mike | 🟢 ready (CLAUDE.md prohibits snolib.plsw but it's now canonical) |
 | `dcsno-combined-goto-parser.md` | dcsno | dcftn | ✅ shipped; combined-goto syntax in lexer/exec |
-| `dcsno-nested-call-drops-gotos.md` | dcsno | dcftn | 🟡 open (agent-drafted bug brief) |
-| `dcsno-storage-allocation-runtime.md` | dcsno | dcpls | 🟡 open (agent-drafted runtime spec) |
+| `dcsno-nested-call-drops-gotos.md` | dcsno | dcftn | ✅ shipped; nested-call gotos work, `snobol4.lgo` rebuilt+reinstalled |
+| `dcsno-rebuild-snobol4-artifacts.md` | dcsno | mike | 🟡 gated on `dcpls-rebuild-plsw-lgo` (rebuild snobol4.{lgo,bin} so `sno_main.s` shrinks from 261 KB to ~7 KB) |
+| `dcsno-storage-allocation-runtime.md` | dcsno | dcpls | ✅ shipped (design doc landed; runtime impl future) |
 | `dcxas-cor24-asm-base-addr.md` | dcxas | mike | ✅ |
 | `dcxas-cor24-asm-cli.md` | dcxas | mike | ✅ |
 | `dcxas-depend-on-isa-not-emulator.md` | dcxas | mike | ✅ shipped, dev-only (promotion is mike's call) |
@@ -73,7 +77,7 @@ Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq
 | `dcxtc-string-literal-concatenation.md` | dcxtc | dcpls | ✅ |
 | `dwftn-hello-world-demo.md` | dwftn | mike | 🔵 in flight (first attempt went out of scope; redoing per brief) |
 
-(Status as of 2026-05-08 evening; mike updates this index when briefs land or new ones are added.)
+(Status as of 2026-05-09; mike updates this index when briefs land or new ones are added.)
 
 ### Recent shipped sagas without an associated brief
 
