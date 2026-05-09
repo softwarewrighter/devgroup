@@ -59,12 +59,13 @@ Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq
 | `dcftn-fti-m1-resume.md` | dcftn | mike | 🔵 in flight on `feat/m1-resume`; SNOBOL4 nested-call fix unblocks inline IDENT(SUBSTR(...)) |
 | `dcpls-bootstrap-goldens.md` | dcpls | mike | ✅ shipped; `just test` is now a green CI gate |
 | `dcpls-bootstrap-plsw-toolchain.md` | dcpls | mike | ✅ |
-| `dcpls-rebuild-plsw-lgo.md` | dcpls | mike | 🟢 ready (rebuild `plsw.lgo` against `c7e1262` so `pl-sw` actually emits `.zero N`) |
+| `dcpls-rebuild-plsw-lgo.md` | dcpls | mike | ✅ shipped; new `plsw.lgo` installed at `work/lib/cor24/` (SHA `6a0e6570…`) |
+| `dcpls-streaming-emit.md` | dcpls | dcsno (agent-drafted) | 🟢 ready (replace 256 KB `emit_buf` with 4 KB coalescer; unblocks dcsno step 003 + future PL/SW library growth) |
 | `dcsno-bootstrap-snobol4-toolchain.md` | dcsno | mike | ✅ shipped; `snobol4.lgo` + wrapper on PATH |
 | `dcsno-claude-md-snolib-drift.md` | dcsno | mike | 🟢 ready (CLAUDE.md prohibits snolib.plsw but it's now canonical) |
 | `dcsno-combined-goto-parser.md` | dcsno | dcftn | ✅ shipped; combined-goto syntax in lexer/exec |
 | `dcsno-nested-call-drops-gotos.md` | dcsno | dcftn | ✅ shipped; nested-call gotos work, `snobol4.lgo` rebuilt+reinstalled |
-| `dcsno-rebuild-snobol4-artifacts.md` | dcsno | mike | 🟡 gated on `dcpls-rebuild-plsw-lgo` (rebuild snobol4.{lgo,bin} so `sno_main.s` shrinks from 261 KB to ~7 KB) |
+| `dcsno-rebuild-snobol4-artifacts.md` | dcsno | mike | ✅ shipped; new `snobol4.{lgo,bin}` installed at `work/lib/cor24/` (sno_main.s 261 KB → 8 KB; library modules unchanged — see `dcpls-streaming-emit`) |
 | `dcsno-storage-allocation-runtime.md` | dcsno | dcpls | ✅ shipped (design doc landed; runtime impl future) |
 | `dcxas-cor24-asm-base-addr.md` | dcxas | mike | ✅ |
 | `dcxas-cor24-asm-cli.md` | dcxas | mike | ✅ |
