@@ -3,9 +3,47 @@
 **Owner:** dcsno
 **Branch:** `pr/bootstrap-toolchain`
 **Repo:** `sw-cor24-snobol4`
-**Prerequisite:** mike will signal when both tc24r fixes (`pr/array-size-expressions` + `pr/string-literal-concatenation` from dcxtc) have shipped, tc24r is reinstalled, `build/plsw.lgo` is built and installed at `/disk1/.../work/lib/cor24/plsw.lgo`, and the `pl-sw` wrapper script is on PATH at `/disk1/.../work/bin/pl-sw`.
+**Prerequisites (all satisfied 2026-05-08):** ✅ tc24r reinstalled with array-size + string-literal-concat fixes, ✅ `build/plsw.lgo` installed at `/disk1/.../work/lib/cor24/plsw.lgo`, ✅ `pl-sw` wrapper on PATH at `/disk1/.../work/bin/pl-sw`. **You can start now.**
 
-You can read this brief now and do prep work (audit, plan), but don't push the migration commit until prerequisites are confirmed live — your build-time tests will need `pl-sw` runnable on PATH.
+## Why this is critical-path
+
+This saga is the **single gating step for the Fortran hello-world live demo**:
+
+```
+dcsno (this saga)        →  snobol4.lgo + snobol4 wrapper on PATH
+        ↓ unblocks
+dcftn (separate saga)    →  hello.f compiler chain (or pre-baked hello.lgo)
+        ↓ unblocks
+dwftn (separate saga)    →  web-sw-cor24-fortran live demo deployed
+```
+
+dcftn already shipped `pr/verify-snobol4-and-vendor` with `scripts/verify-snobol4.sh` ready to gate-check the SNOBOL4 builtins (SIZE/SUBSTR/CHAR) — but it can't run until `snobol4` is on PATH. Your saga unblocks them, which unblocks dwftn.
+
+## Known dcemu bug — workaround required for the canonical wrapper
+
+You discovered (during this saga) that `cor24-emu --lgo X.lgo --load-binary Y@addr` silently drops the `--load-binary` flag. The fix is briefed at `tools/briefs/dcemu-lgo-load-binary-merge.md` — a one-line miss in `cli/src/run.rs`'s lgo arm. dcemu plans to tackle it after finishing prior saga work.
+
+**Don't wait for dcemu.** Ship your saga with a **documented workaround** using the binary-only invocation path:
+
+```bash
+# Working today (no --lgo, just --load-binary; bug-free path):
+cor24-emu --load-binary build/snobol4.bin@0 \
+          --load-binary "$INPUT"@0x080000 \
+          --entry 0 -n 200000000 --speed 0 -q
+
+# Canonical (post-dcemu-fix, blocked today):
+cor24-emu --lgo build/snobol4.lgo \
+          --load-binary "$INPUT"@0x080000 \
+          --entry 0 -n 200000000 --speed 0 -q
+```
+
+In your `scripts/build.sh` / wrapper / README:
+
+1. Use the binary-only path as the working invocation.
+2. Note in the README + a comment in the wrapper: *"`cor24-emu --lgo` + `--load-binary` is the canonical form per project convention but is currently silently broken (see `tools/briefs/dcemu-lgo-load-binary-merge.md`). This wrapper uses `--load-binary` for both the interpreter image and the source input as a workaround. Flip back to `--lgo` once dcemu's fix is reinstalled in `work/bin/`."*
+3. Produce both `build/snobol4.bin` and `build/snobol4.lgo` in your `just build-lgo` recipe — `cor24-asm in.s --bin out.bin -o out.lgo` produces both. The binary is the workaround consumer; the lgo is what mike installs to `work/lib/cor24/snobol4.lgo` for downstream use.
+
+After dcemu's fix ships, a tiny follow-up saga (`pr/snobol4-canonical-lgo-wrapper`) flips the workaround comments + wrapper invocation. ~3-line change.
 
 ## Context
 

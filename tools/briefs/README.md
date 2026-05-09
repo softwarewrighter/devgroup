@@ -13,6 +13,30 @@ Saga briefs for the COR24 multi-agent ecosystem. Each brief is a self-contained 
 - **Agents may draft cross-repo briefs.** If an agent diagnoses a blocker in another repo (e.g. a tc24r limitation), they can draft a brief for the responsible agent and drop it directly here. Mike reviews at relay time. See `feedback_agent_drafted_briefs.md` in the project memory.
 - **Permissions:** dir is `drwxrwsr-x mike:devgroup`. Mike-authored briefs have mode `640 mike:devgroup`. Agent-drafted briefs inherit `<agent>:devgroup` ownership.
 
+## 🏛️ Architecture: compilers, wrappers, demos
+
+Each language repo (`sw-cor24-<lang>`) builds **a compiler/interpreter** for that language on COR24. That compiler is the repo's main artifact. Demos under `examples/` exercise the compiler.
+
+Wrappers on PATH (`work/bin/<lang>`) invoke the compiler. **Two valid packagings for the shipped compiler** — mike picks at install time:
+
+- **Bundled `.lgo`** (e.g. `plsw.lgo`): single self-contained image. Wrapper is a thin pass-through: `exec cor24-emu --lgo $TOOLROOT/../lib/cor24/<lang>.lgo "$@"`.
+- **Script-composed**: wrapper is a shell script that runs `cor24-emu --lgo <interpreter>.lgo --load-binary <compiler>.sno@<addr> ...`. Useful when the compiler is itself a program in another language that runs inside an interpreter image (e.g. Fortran-in-SNOBOL4 — `fortran` could compose `snobol4.lgo` + `fortran-compiler.sno` at runtime instead of pre-bundling).
+
+Both packagings are equivalent for users; the choice is about build-time bundling. Future briefs/sagas don't constrain agents to one or the other.
+
+Demos and demo outputs (e.g. `examples/hello.f`, `examples/hello.lgo`) live in the repo's own `examples/` directory and are **not** installed to `work/lib/cor24/` — only compilers/interpreters live there.
+
+## 🚀 Critical path — Fortran hello-world live demo
+
+| # | Brief | Status |
+|---|---|---|
+| 1 | `dcemu-lgo-load-binary-merge.md` | ✅ shipped, on PATH |
+| 2 | `dcsno-bootstrap-snobol4-toolchain.md` | ✅ shipped; canonical `--lgo` wrapper now works |
+| 3 | `dcftn-fortran-hello-world.md` | ✅ shipped (Path A); `fortran` wrapper on PATH |
+| 4 | `dwftn-hello-world-demo.md` | 🔵 in flight (rework after first attempt went out of scope) |
+
+The first three landed and verified end-to-end. dwftn's web demo is the only remaining piece for the Fortran live demo to ship.
+
 ## Generic briefs (multi-agent — apply to any matching repo)
 
 | Brief | Target | Purpose |
@@ -20,22 +44,50 @@ Saga briefs for the COR24 multi-agent ecosystem. Each brief is a self-contained 
 | `dc-migrate-toolchain.md` | any `dc*` agent | Migrate build scripts off `cor24-run --run`/`--assemble` and `$HOME/...` paths to PATH-resolved tools. Includes audit one-liner + full migration mapping table. |
 | `dw-rebuild-pages.md` | any `dw*` agent (esp. apl, forth, macrolisp, pcode, plsw, snobol4) | Rebuild `pages/` after the cor24-isa path-dep migration so gh-pages reflects current source. |
 
-## Agent-specific briefs — open
+## Agent-specific briefs
 
-| Brief | Owner | Branch | Status |
+Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq) · 🔵 in flight (agent has feat/ branch, not yet pr/) · ✅ shipped + relayed + promoted to main · 🆕 just relayed, awaiting promotion
+
+| Brief | Owner | Status |
+|---|---|---|
+| Brief | Owner (target) | Drafted by | Status |
 |---|---|---|---|
-| `dcemu-extract-isa.md` | dcemu | `pr/extract-isa` | ✅ shipped, relayed, promoted to main |
-| `dcemu-remove-internal-assembler.md` | dcemu | `pr/remove-internal-assembler` | ✅ shipped, relayed, promoted to main |
-| `dcpls-bootstrap-goldens.md` | dcpls | `pr/bootstrap-goldens` | 🟡 cleared to start; toolchain prereqs satisfied |
-| `dcpls-bootstrap-plsw-toolchain.md` | dcpls | `pr/bootstrap-toolchain` | ✅ shipped, relayed, promoted to main |
-| `dcsno-bootstrap-snobol4-toolchain.md` | dcsno | `pr/bootstrap-toolchain` | 🟡 cleared, placeholder branch only |
-| `dcxas-cor24-asm-base-addr.md` | dcxas | `pr/cor24-asm-base-addr` | ✅ shipped, relayed, on PATH |
-| `dcxas-cor24-asm-cli.md` | dcxas | `pr/cor24-asm-cli` | ✅ shipped, relayed, on PATH |
-| `dcxas-depend-on-isa-not-emulator.md` | dcxas | `pr/depend-on-isa-not-emulator` | 🟡 cleared, prereq (dcemu's extract-isa) satisfied |
-| `dcxtc-array-size-expressions.md` | dcxtc | `pr/array-size-expressions` | ✅ shipped, relayed, tc24r reinstalled |
-| `dcxtc-string-literal-concatenation.md` | dcxtc | `pr/string-literal-concatenation` | ✅ shipped, relayed, tc24r reinstalled |
+| `dcemu-extract-isa.md` | dcemu | mike | ✅ |
+| `dcemu-lgo-load-binary-merge.md` | dcemu | dcsno | ✅ shipped; cor24-emu reinstalled |
+| `dcemu-remove-internal-assembler.md` | dcemu | mike | ✅ |
+| `dcftn-fortran-hello-world.md` | dcftn | mike | ✅ shipped (Path A); `fortran` wrapper on PATH |
+| `dcpls-bootstrap-goldens.md` | dcpls | mike | ✅ shipped; `just test` is now a green CI gate |
+| `dcpls-bootstrap-plsw-toolchain.md` | dcpls | mike | ✅ |
+| `dcsno-bootstrap-snobol4-toolchain.md` | dcsno | mike | ✅ shipped; `snobol4.lgo` + wrapper on PATH |
+| `dcsno-combined-goto-parser.md` | dcsno | dcftn | ✅ shipped; combined-goto syntax in lexer/exec |
+| `dcsno-nested-call-drops-gotos.md` | dcsno | dcftn | 🟡 open (agent-drafted bug brief) |
+| `dcsno-storage-allocation-runtime.md` | dcsno | dcpls | 🟡 open (agent-drafted runtime spec) |
+| `dcxas-cor24-asm-base-addr.md` | dcxas | mike | ✅ |
+| `dcxas-cor24-asm-cli.md` | dcxas | mike | ✅ |
+| `dcxas-depend-on-isa-not-emulator.md` | dcxas | mike | ✅ shipped, dev-only (promotion is mike's call) |
+| `dcxtc-array-size-expressions.md` | dcxtc | mike | ✅ |
+| `dcxtc-codegen-dce.md` | dcxtc | (agent-drafted) | 🟡 open |
+| `dcxtc-codegen-string-storage-bugs.md` | dcxtc | (agent-drafted) | 🟡 open |
+| `dcxtc-rebase-codegen-baselines.md` | dcxtc | (agent-drafted) | 🟡 open |
+| `dcxtc-stdlib-heap-variant.md` | dcxtc | (agent-drafted) | 🟡 open |
+| `dcxtc-string-literal-concatenation.md` | dcxtc | dcpls | ✅ |
+| `dwftn-hello-world-demo.md` | dwftn | mike | 🔵 in flight (first attempt went out of scope; redoing per brief) |
 
-(Status as of 2026-05-08; mike updates this index when briefs land or new ones are added.)
+(Status as of 2026-05-08 evening; mike updates this index when briefs land or new ones are added.)
+
+### Recent shipped sagas without an associated brief
+
+These were agent-initiated follow-ons or fixes that didn't have a pre-written brief but landed and were relayed:
+
+| Saga | Owner | What |
+|---|---|---|
+| `pr/spi-emu` | dcemu | SPI peripheral emulation (mirrors prior I2C work) |
+| `pr/cli-loader-output-to-stderr` | dcemu | `--quiet` mode now routes loader logs to stderr |
+| `pr/fortran-wrapper-fix` | dcftn | scripts/fortran heredoc-embedded for self-contained PATH install |
+| `pr/snolib-extraction` | dcsno | extracted `src/snolib.plsw` runtime library |
+| `pr/combined-goto-parser` | dcsno | combined `:S(...) :F(...)` goto syntax (acts on dcftn's brief) |
+| `pr/goto-precedence` | dcsno | edge-case fix for `:S(L1):S(L2)` and `:F(L1):F(L2)` precedence |
+| `pr/storage-allocation-doc` | dcpls | design doc for PL/SW storage allocation + dcsno brief |
 
 ## Where things live
 
