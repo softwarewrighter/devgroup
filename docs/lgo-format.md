@@ -12,212 +12,263 @@ literal zeros.
 > analysis so any future brief / saga / decision starts from shared
 > ground.
 
+> **Status:** Format constraints are now verified against the
+> upstream makerlisp loader source at `cc24/demo/loadngo/loadngo.c:166`.
+> Sections previously marked "open questions" or "low-but-not-zero
+> risk" have been replaced with definite findings.
+
 ## ELI5
 
-A `.lgo` file is a text file. Each line is one tiny instruction to a
-loader: *"starting at memory address X, write these 12 words of data
-into memory."* The loader walks the file top to bottom, writes each
-block at its address, and is done.
+A `.lgo` file is a text file. Each line is one record. The loader
+walks the file top to bottom and acts on each record. The most
+common record is `L` ("load these bytes at this address"); there
+are two others (`G` for jump/call, `;` for comment) and **no
+others**.
 
-Per-line format (one record per line):
+Per-line format for the load record:
 
 ```
 L 000048 4D093800C815164D0938007D29070000250C034D097D
 ^   ^      ^
 |   |      `-- 72 hex chars = 36 bytes = 12 24-bit words of data
-|   `--------- 6 hex chars = 24-bit address
+|   `--------- 6 hex chars = 24-bit address (uppercase only)
 `------------- literal "L" tag, marks "load this record"
 ```
 
-Each `L` line writes exactly 12 24-bit words (= 36 bytes) starting at
-the given address. Consecutive lines normally have addresses that
-differ by `0x24` (= 36 decimal), so a typical file describes a
-contiguous memory region 36 bytes at a time.
-
-This format is in the same family as Intel HEX and Motorola S-records
-— text-based load images that ROM programmers, serial bootloaders,
-and FPGA configuration tools have used for decades. Simple,
-ASCII-safe, easy to ship over a serial port, easy to inspect by eye.
+It's in the same family as Intel HEX and Motorola S-records — but
+much simpler than either. No checksum, no byte count, no extended
+addressing, no end-of-file marker.
 
 ## How `.lgo` files get loaded
 
-Two kinds of consumer:
+Two consumers:
 
 1. **`cor24-emu`** (our emulator, in `sw-cor24-emulator`).
    Invoked as `cor24-emu --lgo prog.lgo [...]`. It allocates simulated
-   COR24 SRAM (zero-initialized), reads the `.lgo` line by line, and
-   writes each `L`-record's data at the named address. Then it begins
-   execution.
+   COR24 SRAM in a fresh OS process (zero-initialized), reads the
+   `.lgo` line by line, and writes each `L`-record's data at the
+   named address. Then it begins execution.
 
-2. **The COR24 FPGA board** (hardware, from makerlisp.com).
-   The board's bootloader (typically `as24` / `cc24`-flavor tooling
-   on the host side, plus on-board firmware) reads the `.lgo`,
-   transmits each `L` record to the board (e.g. over serial), and the
-   board's loader writes each block into SRAM. Then it kicks off
-   execution.
+2. **The COR24 FPGA board** (hardware, makerlisp.com).
+   The board's `loadngo` program at `cc24/demo/loadngo/loadngo.c:166`
+   reads the `.lgo`, dispatches each line by its first character, and
+   directly writes bytes from `L` records to memory via
+   `*(char *)lodadr = ...; lodadr++;`.
 
 Both consumers see the **same file format**. We control consumer #1.
-We do **not** control consumer #2 — the makerlisp toolchain and FPGA
-bitstream are upstream artifacts we consume. **Anything we do to the
-`.lgo` format must remain loadable by makerlisp's tooling**, or we
-fork the format and our outputs only run in our emulator.
+We do **not** control consumer #2 — the makerlisp tooling is upstream
+we consume. **Anything we do to the `.lgo` format must remain
+loadable by makerlisp's `loadngo`**, or we fork the format and our
+outputs only run in our emulator.
+
+## Verified format spec (from `loadngo.c`)
+
+- **Three record types**, distinguished by the first character of
+  the line:
+    - `L<addr><data>` — load bytes at the 6-hex-digit address
+    - `G<addr>` — jump/call to the 6-hex-digit address
+    - `;...` — comment line, skipped
+- **Any other first character** triggers `"? Unknown command:"` —
+  unknown record types are not silently ignored. **We cannot invent
+  new record types.**
+- Hex digits are **uppercase only** (`0-9A-F`). Lowercase is
+  rejected by `hexnum()`.
+- **Address is exactly 6 hex chars**, zero-padded. Any byte address
+  is accepted (no alignment requirement).
+- **Line length cap: 80 characters total including newline** (`LINSIZ
+  = 81` minus the terminator). For `L` records that gives:
+  `L` (1) + addr (6) + data ≤ 72 hex chars = 36 bytes per record.
+  Existing `cor24-asm` output uses this exact maximum.
+- **Minimum `L` record:** at least one full byte (2 hex chars) of
+  data. `L00000000` is the smallest legal load.
+- **No checksum.** No byte count field. No EOF marker. No extended
+  addressing.
+- **No address ordering or contiguity requirement.** Records can be
+  sparse or out of order. Later writes overwrite earlier ones at
+  the same address.
+- **Malformed records are partially destructive.** The loader writes
+  the high nybble of a byte before validating the low nybble. An
+  odd-nybble line will write half a byte before reporting the error.
+  → Don't ever produce malformed lines.
+
+## Where `.lgo` is *produced* in our codebase
+
+Effectively one place:
+
+- **`sw-cor24-x-assembler/src/lgo.rs`** — the canonical emitter.
+  `cor24-asm` invokes it to write the `.lgo` alongside the `.bin`
+  output. Every compiler in the toolchain (PL/SW, SNOBOL4 runtime,
+  Fortran chain, etc.) routes through `cor24-asm`, so this single
+  module determines the .lgo shape for the whole ecosystem.
+
+- **`sw-cor24-snobol4/scripts/bin-to-lgo.sh`** — a 30-line shell
+  helper that converts a raw `.bin` to `.lgo` via `printf
+  "L%06X%s\n"`. Auxiliary path; same record format.
+
+That's it. Nothing else in the workspace emits `.lgo` records.
+This means any .lgo-shaping work — adding flags, post-processors,
+or a compact-output mode — has a single load-bearing change site.
 
 ## Why we care about size
 
-Empirical: production `build/plsw.lgo` (the PL/SW compiler running on
-COR24) is 1,657,430 bytes today.
+Empirical: production `build/plsw.lgo` (the PL/SW compiler running
+on COR24) is 1,657,430 bytes today. Of its 20,718 `L` records,
+**19,178 (92.6%) are pure-zero blocks**: `L<addr>0000…00` with no
+non-zero bytes. They come from PL/SW's pre-allocated static buffers
+(AST node pools, `chunk_storage`, etc.) which the C source declares
+zero-init, and the compiler-asm-loader chain materializes those
+zeros literally in the file because the loader will not provide
+them otherwise (see next section).
 
-Counting the lines:
-
-| Metric | Value |
-|---|---|
-| Total `L` lines | 20,718 |
-| Pure-zero lines (entire 12-word block is `0000…00`) | **19,178 (92.6%)** |
-| Bytes in zero-only lines | ~1,612,000 |
-
-The file is almost entirely zeros. They come from PL/SW's
-pre-allocated static buffers (AST node pools, `chunk_storage`, etc.)
-that are declared but unused at compile time and so emit as
-`.zero N` in the assembly source — and `cor24-asm` faithfully
-materializes them as literal zero bytes in the `.lgo`.
-
-Concrete sample of a zero-only line:
-
+Concrete example:
 ```
 L00B58C000000000000000000000000000000000000000000000000000000000000000000000000
 ```
+There are 19,178 lines like that, contiguous, accounting for the
+bulk of the file.
 
-There are 19,178 of those, contiguous, accounting for the bulk of
-the file.
+## Why pure-zero `L` records exist (and can't just be deleted)
 
-## Compatibility analysis: three approaches to shrinking `.lgo`
+`loadngo.c` is **passive**: it writes only the bytes named in `L`
+records and never touches any other address. Specifically, **it does
+not pre-zero SRAM**. So if a C `static int x[N]` array (zero-init by
+language spec) is to actually contain zeros at program start, *some*
+mechanism has to put zeros at those addresses. Today's chain puts
+that responsibility on the `.lgo`: cor24-asm emits explicit `L`
+records full of zeros, and the loader writes them.
 
-| Approach | Format change? | Hardware risk | File-size win |
-|---|---|---|---|
-| **Add a new record type** (e.g. `Z<addr><N>` "fill N zero bytes") | **YES** | **High** — breaks any loader that doesn't recognize the new tag | ~13× |
-| **Omit zero-only `L` lines** (no new syntax; loader simply sees a gap in addresses) | NO | **Low-but-not-zero** — depends on the loader's behavior for addresses *not* mentioned in the file | ~13× |
-| **Status quo** (emit every word, including all-zero blocks) | NO | None | None |
+Stripping zero-only `L` records moves the zero-init responsibility
+from "the .lgo file" to "whatever-came-before-the-load." That's
+**only safe in environments that independently zero SRAM before the
+load runs**:
 
-### Why "add a new record type" is the wrong path
+| Loading context | Memory state at load time | Compact .lgo safe? |
+|---|---|---|
+| `cor24-emu` (fresh OS process) | Zero (Linux page allocation) | ✅ Always safe |
+| FPGA cold boot, post-bitstream-config, pre-anything-running | Zero (BRAM init from FPGA bitstream) | ✅ Safe |
+| FPGA warm reboot, hot reload, second `loadngo` invocation | Whatever previous program left in SRAM | ❌ **Not safe** |
+| Loading on top of a paused-but-resident program | That program's data | ❌ Not safe |
 
-Any loader that doesn't understand the new tag will either:
+The third and fourth rows are the gotchas. A user who power-cycles
+the FPGA before each load is fine with compact .lgo; a user who
+reuses a running loader to swap programs is not.
 
-- Hard-error on the unrecognized line (bricked load).
-- Silently skip it (the zero-init region is left as whatever was in
-  SRAM at boot — undefined behavior).
-- Treat it as ASCII data of some other kind (corrupted load).
+## Three approaches to shrinking `.lgo`, ranked
 
-makerlisp's bootloader is the unknown. Until we have FPGA hardware
-in hand and have read or experimented with their loader, we have to
-assume any unrecognized line type is fatal. **A `.lgo` with a
-`Z<addr><N>` line stops being a `.lgo` — it's a different format that
-happens to look similar.**
-
-### Why "omit zero-only lines" is the candidate
-
-A compacted `.lgo` produced by stripping zero-only lines is still
-**a strict subset** of a full `.lgo`. Every line in it is a
-syntactically and semantically valid `L<addr><data>` record under
-the original format. Nothing new gets introduced.
-
-The only behavioral change: the loader receives fewer records, and
-for some address ranges, no record at all. Whether that's safe
-depends on **the loader's contract for un-named addresses**:
-
-- If the loader (or the hardware it loads onto) **assumes SRAM is
-  zero before loading** — typical of FPGA BRAM, which is
-  zero-initialized at FPGA configuration time — then omitting
-  zero-only lines is safe and equivalent in effect.
-- If the loader assumes nothing about pre-state, or some addresses
-  may have stale data from a previous session — omitting lines could
-  leave undefined values in those regions.
-
-For `cor24-emu`: the emulator allocates SRAM as zero-init in fresh
-process memory, so omitted lines effectively *are* zero. Almost
-certainly safe; can be confirmed quickly with a round-trip test.
-
-For the FPGA board: virtually always safe in practice (BRAM
-zero-init at config), but **not formally verified for makerlisp's
-loader**. Needs hardware-in-hand testing.
-
-### Why status quo is OK in the meantime
-
-The current 1.66 MB `.lgo` works. It loads on the emulator, would
-load on hardware. Disk space and load-time cost is annoying but not
-blocking. Nothing forces a near-term decision.
+| Approach | Format change? | Hardware risk | File-size win | Verdict |
+|---|---|---|---|---|
+| **Add a new record type** (e.g. `Z<addr><N>` "fill N zero bytes") | YES | **Categorical** — `loadngo` rejects unknown commands as `"? Unknown command:"` | Up to ~13× | **Off the table.** Format divergence; would only run on our emulator. |
+| **Omit zero-only `L` lines** (no syntax change; loader sees gaps) | NO | **Conditional** — safe on cor24-emu always; safe on hardware only at cold boot | ~13× | **Conditionally safe.** Recommended path; environment-dependent. |
+| **Status quo** (emit every word, including all-zero blocks) | NO | None | None | Always works. Default until we deliberately compact. |
 
 ## Recommended path (when we choose to act)
 
-Stated for the record; not a brief, not a commitment:
+Stated for the record; not a brief, not a commitment. Now grounded
+by the verified loader contract.
 
-1. **Do not modify `cor24-asm`'s default output.** Its emitted `.lgo`
-   stays the makerlisp-compatible full form. No regression risk for
-   hardware.
-2. **Add a separate post-processor** — e.g. `work/bin/lgo-compact` or
-   a small Rust binary alongside `cor24-asm` — that takes a full
-   `.lgo` and produces a compact one with pure-zero lines removed.
-   Pure text filtering. No format change.
-3. **Use compact `.lgo`s with `cor24-emu`** by default (we control
-   the emulator and can verify gap-handling behavior).
-4. **Continue using full `.lgo`s for FPGA hardware** until physical
-   testing on the makerlisp board confirms the bootloader treats
-   unspecified addresses as zero. After verification, flip the
-   default; before then, don't risk it.
-5. **Round-trip verify on `cor24-emu` first**: take a known-good
-   full `.lgo`, run `lgo-compact`, load the compact form, check
-   program behavior matches the full form. That's strong evidence
-   for the emulator path; weak evidence for the hardware path
-   (because the two loaders may behave differently on gap addresses).
-6. **Once FPGA hardware is in hand**, run the same round-trip on
-   real hardware before switching the default for hardware-targeted
-   builds.
+1. **Don't modify `cor24-asm`'s default output.** The default `.lgo`
+   stays makerlisp-compatible (full form) so it loads under any
+   condition. No regression risk for existing or new hardware
+   workflows.
+2. **Add a `--compact` flag** to `cor24-asm` (in
+   `sw-cor24-x-assembler/src/lgo.rs`), or alternatively a separate
+   post-processor (`work/bin/lgo-compact`) that takes a full `.lgo`
+   and emits one with pure-zero `L` lines stripped. Either path is
+   pure text filtering — no new record types, no syntax change.
+   Single-repo change either way.
+3. **Use compact `.lgo` with `cor24-emu`**. The emulator runs in a
+   fresh OS process; SRAM is zero before any `L` writes. Compact is
+   unconditionally safe in this environment, and `cor24-emu` is
+   where most current usage lives anyway (hardware not yet in hand).
+4. **Use full `.lgo` for FPGA hardware until cold-boot semantics
+   are explicitly confirmed in the deploy workflow.** If your
+   hardware workflow always power-cycles before loading, compact is
+   safe; if it ever hot-reloads, full is required. Document the
+   policy explicitly so it doesn't drift.
+5. **Round-trip verify** before any default flip: take a known-good
+   full `.lgo`, run the compactor, load the compact form in
+   cor24-emu, compare program behavior. (Already gives strong
+   evidence for emulator path; weak evidence for hardware path
+   because the two loaders may differ in pre-state assumptions.)
+6. **No need to touch `bin-to-lgo.sh`** unless you want a compact
+   shell path too. It's auxiliary; if it stays as a full-form
+   producer that's fine.
 
-This way:
+Format constraints any compactor must respect (these are firm, from
+`loadngo.c`):
 
-- File-size win (~13×) is realized immediately for emulator runs.
-- Hardware loading is untouched.
-- The format stays singular — compact `.lgo` is just a *subset* of
-  full `.lgo`, never a divergent dialect.
-- No flag day, no incompatibility window, no upstream surprise.
+- Only emit `L`, `G`, or `;` lines. No new tags.
+- Hex uppercase only.
+- Lines ≤ 80 chars including newline.
+- Preserve existing line lengths and structure of non-zero records;
+  the simplest correct compactor is a *line filter* (drops zero-only
+  lines verbatim, leaves all others untouched).
+- Don't reorder records (legal per the loader, but pointless and
+  reduces human readability).
+- Preserve `G` records and their positions exactly.
+- Preserve `;` comments exactly (or strip them as a separate
+  optional pass — they're already small).
 
-## Open questions
+## What this means for our plsw.lgo size goal
 
-- **Does `cor24-emu` actually treat un-named addresses as zero
-  today?** Highly likely (process memory is zero-init), but worth
-  confirming by reading `sw-cor24-emulator/src/loader.rs` (or
-  wherever the `--lgo` consumer lives). If it instead errors on
-  gaps, the post-processor approach needs the emulator side updated
-  in lockstep — still no format change, just loader-tolerance work.
-- **What does makerlisp's hardware bootloader do for un-named
-  addresses?** Unknown until we have hardware to test on.
-  Conservatively, assume "undefined" and don't ship compact `.lgo`
-  to hardware without verification.
-- **Is there a `cor24-asm` flag or post-processor convention that
-  upstream already supports for this?** Worth a quick scan of
-  upstream docs (makerlisp.com) before we invent our own
-  convention. If they already have a "compact" mode, we should
-  reuse their tag/syntax rather than inventing parallel tooling.
+The 92.6% zero share is real and recoverable in cor24-emu (our
+primary near-term consumer) without any format change. A line-filter
+compactor would shrink plsw.lgo from 1.66 MB to ~125 KB for emulator
+use. That's a 13× win, available with one repo change in
+`sw-cor24-x-assembler/src/lgo.rs`.
 
-## Format reference (for anyone implementing a tool that touches
-`.lgo`)
+But for hardware deployment, **the .lgo file size win is a workflow
+choice, not a free architectural improvement.** Every byte we strip
+is a byte the *environment* (FPGA cold-boot zero) has to provide.
+That's a contract about deployment, not a contract about file
+format.
+
+For genuine SRAM-footprint reduction at runtime (i.e. less actual
+memory used by the running program, not just smaller files on
+disk), the path remains **dcpls's chunk-allocator architecture
+plan** in `sw-cor24-plsw/docs/shrink-lgo-size.md`. Those phases
+shrink the *amount* of zero-init storage actually needed, not just
+its file-encoding size. A program with a smaller AST pool and
+demand-allocated buffers fits in less SRAM regardless of `.lgo`
+shape.
+
+The two efforts are complementary and independent:
+- `.lgo` compaction → smaller files on disk, faster loads,
+  emulator-default win, hardware win at cold boot only.
+- chunk-allocator phases → smaller runtime SRAM footprint,
+  compatible with both full and compact .lgo, makes the program
+  itself smaller regardless of how it's encoded.
+
+## Format reference (for anyone implementing a tool that touches `.lgo`)
 
 - One record per line.
-- Each record begins with literal `L`.
-- Followed by a 6-character hexadecimal address (uppercase),
-  zero-padded.
-- Followed by hexadecimal data, 2 hex chars per byte. Typical line
-  carries 12 24-bit words = 36 bytes = 72 hex chars of data.
+- Each record's first character is `L`, `G`, or `;`. **No others.**
+- For `L` records:
+  - 6 uppercase hex address chars (24-bit address).
+  - Followed by hex data bytes, 2 hex chars per byte. Typical line
+    carries 12 24-bit words = 36 bytes = 72 hex chars of data.
+  - At least 1 byte of data required.
+  - Line ≤ 80 chars including newline.
+- For `G` records:
+  - 6 uppercase hex address chars.
+  - No payload after the address.
+  - Loader jumps/calls to the named address.
+- For `;` records:
+  - Free-form text after the `;`. Ignored by the loader.
 - No leading whitespace, no trailing whitespace, terminated by `\n`.
-- Address increments between consecutive lines are typically
+- Address increments between consecutive `L` lines are typically
   `0x24` (36 decimal) when describing contiguous memory; gaps in
   the address sequence are syntactically permitted but
-  *semantically* depend on loader behavior (see above).
-- Last record carries the entry point's data area; cor24-emu's
-  default entry address is implementation-defined and not encoded
-  in the file itself (passed via `--entry` or defaults).
+  *semantically* mean those addresses retain their pre-load state
+  (see compaction safety table above).
+- The entry point is conveyed by a `G` record at the end of the
+  file (or wherever execution should begin); cor24-emu's `--entry`
+  flag overrides if present.
 
-This document was prepared 2026-05-10 from an inspection of
-`sw-cor24-plsw`'s `build/plsw.lgo` and `sw-cor24-fortran`'s
-`examples/hello.lgo`. It is descriptive of observed behavior, not
-authoritative spec — for the canonical format definition, refer to
-makerlisp.com upstream.
+This document was prepared 2026-05-10 from inspection of
+`sw-cor24-plsw/build/plsw.lgo`, `sw-cor24-fortran/examples/hello.lgo`,
+and the canonical loader source at
+`~/tools/cor24io/cc24/demo/loadngo/loadngo.c:166`. Producer-side
+findings come from a workspace-wide search; the only `.lgo`-emitting
+modules are `sw-cor24-x-assembler/src/lgo.rs` and
+`sw-cor24-snobol4/scripts/bin-to-lgo.sh`.
