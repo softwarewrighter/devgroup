@@ -59,8 +59,9 @@ Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq
 | `dcftn-fti-m1-resume.md` | dcftn | mike | 🔵 in flight on `feat/m1-resume`; SNOBOL4 nested-call fix unblocks inline IDENT(SUBSTR(...)) |
 | `dcpls-bootstrap-goldens.md` | dcpls | mike | ✅ shipped; `just test` is now a green CI gate |
 | `dcpls-bootstrap-plsw-toolchain.md` | dcpls | mike | ✅ |
+| `dcpls-dynamic-memory-architecture.md` | dcpls | mike | 🪦 superseded — see `sw-cor24-plsw/docs/shrink-lgo-size.md` (canonical multi-phase plan, dcpls-owned) |
 | `dcpls-rebuild-plsw-lgo.md` | dcpls | mike | ✅ shipped; new `plsw.lgo` installed at `work/lib/cor24/` (SHA `6a0e6570…`) |
-| `dcpls-streaming-emit.md` | dcpls | dcsno (agent-drafted) | 🟢 ready (replace 256 KB `emit_buf` with 4 KB coalescer; unblocks dcsno step 003 + future PL/SW library growth) |
+| `dcpls-streaming-emit.md` | dcpls | dcsno (agent-drafted) | ✅ shipped + installed (SHA `b6525ebe…`); `emit_buf` reduced to 4 KB coalescer; dcsno step 003 unblocked |
 | `dcsno-bootstrap-snobol4-toolchain.md` | dcsno | mike | ✅ shipped; `snobol4.lgo` + wrapper on PATH |
 | `dcsno-claude-md-snolib-drift.md` | dcsno | mike | 🟢 ready (CLAUDE.md prohibits snolib.plsw but it's now canonical) |
 | `dcsno-combined-goto-parser.md` | dcsno | dcftn | ✅ shipped; combined-goto syntax in lexer/exec |
