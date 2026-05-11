@@ -350,7 +350,9 @@ install_helper_scripts() {
 set -euo pipefail
 echo "USER=${USER}"
 echo "DEVWORK=${DEVWORK:-}"
+echo "ORGROOT=${ORGROOT:-}"
 echo "SRCROOT=${SRCROOT:-}"
+echo "PRIMARY_REPO=${PRIMARY_REPO:-}"
 echo "REPOROOT=${REPOROOT:-}"
 echo "TOOLROOT=${TOOLROOT:-}"
 echo "SCRIPTROOT=${SCRIPTROOT:-}"
