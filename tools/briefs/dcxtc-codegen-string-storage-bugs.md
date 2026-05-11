@@ -3,6 +3,7 @@
 **Owner:** dcxtc
 **Branch:** `pr/codegen-string-storage-bugs`
 **Repo:** `sw-cor24-x-tinyc`
+**Tracked in:** [`sw-embed/sw-cor24-x-tinyc#21`](https://github.com/sw-embed/sw-cor24-x-tinyc/issues/21) (GitHub issue mirror — this brief is canonical)
 **Drafted by:** dcxtc (surfaced while building demo63 for `pr/string-literal-concatenation`)
 
 ## Context
