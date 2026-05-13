@@ -70,6 +70,17 @@ if [[ ! -d "$RELAY/.git" ]]; then
 fi
 
 cd "$RELAY"
+
+# Discard any locally-modified tracked files in the relay clone before
+# fetching/merging. The relay is mike-private and reproducible from the
+# bare, so working-tree changes (e.g. from local `just build-lgo` runs
+# that overwrote committed build/ artifacts) are always throwaway. Without
+# this, a merge that touches those same paths fails with "Merge with
+# strategy ort failed" or "your local changes would be overwritten."
+# Use checkout -- . rather than reset --hard so we don't disturb HEAD,
+# which dg-release uses as a continuity contract.
+git checkout -- . 2>/dev/null || true
+
 git fetch origin --prune
 
 if git rev-parse --verify --quiet origin/dev >/dev/null; then

@@ -46,6 +46,11 @@ RELAY="${RELAY_DIR}/${REPO}"
 [[ -d "$RELAY/.git" ]] || { echo "ERROR: no relay checkout at $RELAY; run dg-relay first" >&2; exit 1; }
 
 cd "$RELAY"
+
+# Discard any locally-modified tracked files before merging. Same
+# rationale as dg-relay: the relay clone is mike-private and reproducible.
+git checkout -- . 2>/dev/null || true
+
 git fetch origin --prune
 
 git switch main 2>/dev/null || git switch -c main --track origin/main
