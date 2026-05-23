@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# dg-install-agents
+#
+# Install four AI agent CLIs (claude, codex, gemini, opencode) into the current
+# user's $HOME. Run as yourself — NO sudo. Each install is isolated per user:
+# your own copy, your own auth, your own upgrade cadence.
+#
+# Usage:
+#   dg-install-agents              # install everything
+#   dg-install-agents claude       # one tool
+#   dg-install-agents claude codex # a subset
+# ------------------------------------------------------------------------------
+
+if [[ "${EUID}" -eq 0 ]]; then
+  echo "ERROR: don't run this as root. Run as a d* user (e.g. dcapl)." >&2
+  exit 1
+fi
+
+echo "==> installing AI agent CLIs for ${USER} -> ${HOME}"
+
+mkdir -p "${HOME}/.local/bin"
+
+# Ensure ~/.local/bin is on PATH for this shell.
+case ":${PATH}:" in
+  *":${HOME}/.local/bin:"*) ;;
+  *) export PATH="${HOME}/.local/bin:${PATH}" ;;
+esac
+
+# Configure npm to install globals under ~/.local (no sudo needed).
+if command -v npm >/dev/null 2>&1; then
+  npm config set prefix "${HOME}/.local" >/dev/null
+fi
+
+# Select tools
+if [[ $# -eq 0 ]]; then
+  TOOLS=(claude opencode codex gemini)
+else
+  TOOLS=("$@")
+fi
+
+install_claude() {
+  curl -fsSL https://claude.ai/install.sh | bash
+}
+
+install_opencode() {
+  curl -fsSL https://opencode.ai/install | bash
+}
+
+install_codex() {
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "WARN: npm missing; skip codex"; return 0
+  fi
+  npm install -g @openai/codex
+}
+
+install_gemini() {
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "WARN: npm missing; skip gemini"; return 0
+  fi
+  npm install -g @google/gemini-cli
+}
+
+declare -A results
+for tool in "${TOOLS[@]}"; do
+  echo
+  echo "==> installing $tool"
+  case "$tool" in
+    claude)   install_claude   && results[$tool]=ok || results[$tool]=FAIL ;;
+    opencode) install_opencode && results[$tool]=ok || results[$tool]=FAIL ;;
+    codex)    install_codex    && results[$tool]=ok || results[$tool]=FAIL ;;
+    gemini)   install_gemini   && results[$tool]=ok || results[$tool]=FAIL ;;
+    *) echo "unknown tool: $tool" >&2; results[$tool]="unknown" ;;
+  esac
+done
+
+echo
+echo "==> summary (PATH-lookup)"
+for tool in claude opencode codex gemini; do
+  [[ -v results[$tool] ]] || continue
+  path="$(command -v "$tool" 2>/dev/null || echo '(not on PATH)')"
+  printf '  %-10s %-7s %s\n' "$tool" "${results[$tool]}" "$path"
+done
+
+echo
+echo "Next: run each tool and complete its first-time auth."
+echo "If a tool doesn't resolve, close and reopen your shell so PATH picks up ~/.local/bin."

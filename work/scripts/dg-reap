@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+git rev-parse --is-inside-work-tree >/dev/null
+git fetch origin --prune
+
+if git rev-parse --verify --quiet origin/dev >/dev/null; then
+  git switch dev 2>/dev/null || git switch -c dev --track origin/dev
+  git branch --set-upstream-to=origin/dev dev >/dev/null 2>&1 || true
+  git merge --ff-only origin/dev
+else
+  echo "WARN: origin/dev does not exist yet; staying on current branch" >&2
+fi
+
+reaped=0 pending=0
+while IFS= read -r pr; do
+  [[ -z "$pr" ]] && continue
+  if git rev-parse --verify --quiet origin/dev >/dev/null \
+     && git merge-base --is-ancestor "$pr" origin/dev 2>/dev/null; then
+    git branch -D "$pr"
+    echo "reaped:  $pr"
+    reaped=$((reaped+1))
+  else
+    echo "pending: $pr (not yet in origin/dev)"
+    pending=$((pending+1))
+  fi
+done < <(git for-each-ref --format='%(refname:short)' refs/heads/pr refs/heads/pr/\*)
+
+echo
+echo "Summary: ${reaped} reaped, ${pending} still pending."

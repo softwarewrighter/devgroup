@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+topic="${1:-}"
+if [[ -z "$topic" ]]; then
+  echo "usage: dg-new-feature <topic>" >&2
+  exit 1
+fi
+git rev-parse --is-inside-work-tree >/dev/null
+git fetch origin --prune || true
+if git rev-parse --verify --quiet origin/dev >/dev/null; then
+  git switch -c "feat/${topic}" origin/dev
+else
+  git switch dev 2>/dev/null || git switch -c dev origin/main
+  git switch -c "feat/${topic}"
+fi
+echo "Created branch feat/${topic}"

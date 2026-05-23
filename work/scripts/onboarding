@@ -1,0 +1,206 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# onboarding
+#
+# First-run briefing for any d* user or their agent. Prints:
+#   1. Environment: who, what repo, what paths.
+#   2. Branching policy (summary).
+#   3. Current repo state: branches, dev-bootstrap status, WIP, pr/ signals.
+#   4. Commands available: dg-* helpers and AI CLIs.
+#   5. Concrete next steps.
+#
+# Invoke at any time, safe to re-run. No side effects.
+
+BOLD=$'\033[1m'; DIM=$'\033[2m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'; RESET=$'\033[0m'
+h()  { printf "\n${BOLD}==> %s${RESET}\n" "$*"; }
+k()  { printf "  ${DIM}%s${RESET} " "$1"; }
+v()  { printf "%s\n" "$*"; }
+ok() { printf "  ${GREEN}%s${RESET} %s\n" "✓" "$*"; }
+wn() { printf "  ${YELLOW}%s${RESET} %s\n" "!" "$*"; }
+er() { printf "  ${RED}%s${RESET} %s\n" "✗" "$*"; }
+
+# ---------------------------------------------------------------------------
+h "You"
+k "user         "; v "${USER}"
+k "host         "; v "$(hostname -s)"
+k "home         "; v "${HOME}"
+
+h "Paths"
+k "DEVWORK      "; v "${DEVWORK:-<unset>}"
+k "PRIMARY_REPO "; v "${PRIMARY_REPO:-<unset>}"
+k "ORGROOT      "; v "${ORGROOT:-<unset>}"
+k "SRCROOT      "; v "${SRCROOT:-<unset>}"
+k "REPOROOT     "; v "${REPOROOT:-<unset>}"
+k "TOOLROOT     "; v "${TOOLROOT:-<unset>}"
+k "SCRIPTROOT   "; v "${SCRIPTROOT:-<unset>}"
+
+# ---------------------------------------------------------------------------
+h "Branching policy (summary)"
+cat <<'POLICY'
+  main          coordinator-only, release branch (tagged)
+  dev           coordinator-only, integration branch (accumulates merges)
+  feat/<slug>   you (local), work in progress; base from origin/dev
+  fix/<slug>    you (local), bug-fix flavor of feat/
+  pr/<slug>     you (local), signal "ready to merge" (rename feat/ -> pr/)
+
+  Rules:
+    - You never push. The coordinator (mike) relays pr/* into dev and pushes.
+    - Base new branches on origin/dev, not origin/main.
+    - No history rewrites on dev or main. Rebase is OK on your own feat/*.
+    - The ref name is the contract: no PR API, no JSON, no ticketing.
+
+  Full policy: /disk1/github/softwarewrighter/devgroup/docs/branching-pr-strategy.md
+POLICY
+
+# ---------------------------------------------------------------------------
+h "Current repo state"
+
+cwd="$(pwd)"
+repo_root=""
+if git rev-parse --show-toplevel >/dev/null 2>&1; then
+  repo_root="$(git rev-parse --show-toplevel)"
+fi
+
+if [[ -z "$repo_root" ]]; then
+  wn "not inside a git repo. cd \$SRCROOT first."
+else
+  k "repo         "; v "$repo_root"
+  cur_branch="$(git -C "$repo_root" branch --show-current 2>/dev/null || echo '<detached>')"
+  k "branch       "; v "$cur_branch"
+
+  # Remotes
+  origin_url="$(git -C "$repo_root" remote get-url origin 2>/dev/null || echo '<no origin>')"
+  k "origin       "; v "$origin_url"
+
+  # Fetch state (don't actually fetch — just report what we know locally)
+  if git -C "$repo_root" rev-parse --verify --quiet origin/dev >/dev/null 2>&1; then
+    ok "origin/dev exists — base feat/* on it"
+  else
+    wn "origin/dev does NOT exist yet. Bootstrap locally:"
+    v  "      git switch dev 2>/dev/null || git switch -c dev origin/main"
+    v  "    Your local dev will converge once the coordinator creates origin/dev."
+  fi
+
+  # Uncommitted changes
+  if ! git -C "$repo_root" diff --quiet || ! git -C "$repo_root" diff --cached --quiet; then
+    wn "uncommitted changes in worktree:"
+    git -C "$repo_root" status --short | sed 's/^/      /'
+  else
+    ok "worktree clean"
+  fi
+
+  # pr/* branches (ready-to-merge signals)
+  pr_branches=$(git -C "$repo_root" for-each-ref --format='%(refname:short)' \
+                  refs/heads/pr refs/heads/pr/\* 2>/dev/null || true)
+  if [[ -n "$pr_branches" ]]; then
+    wn "pr/ branches signalling ready (coordinator will relay these):"
+    printf '      %s\n' $pr_branches
+  fi
+
+  # Unrelayed commits on current feat/fix branch
+  if [[ "$cur_branch" == feat/* || "$cur_branch" == fix/* ]] \
+     && git -C "$repo_root" rev-parse --verify --quiet origin/dev >/dev/null 2>&1; then
+    ahead=$(git -C "$repo_root" rev-list --count origin/dev.."$cur_branch" 2>/dev/null || echo 0)
+    if [[ "$ahead" -gt 0 ]]; then
+      wn "$cur_branch is $ahead commit(s) ahead of origin/dev (not yet signaled)"
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+h "Workflow awareness"
+
+if [[ -z "$repo_root" ]]; then
+  wn "not inside a git repo — cannot classify workflow state"
+else
+  claude_md="$repo_root/CLAUDE.md"
+  agentrail_dir="$repo_root/.agentrail"
+  ar_cli=0; ar_mentioned=0; dg_mentioned=0; claude_md_exists=0
+  command -v agentrail >/dev/null 2>&1 && ar_cli=1
+  if [[ -f "$claude_md" ]]; then
+    claude_md_exists=1
+    grep -qi 'agentrail' "$claude_md" 2>/dev/null && ar_mentioned=1
+    # Heuristic: any mention of a dg-* helper or the feat/pr/ branch model.
+    grep -qE 'dg-(env|policy|new-feature|new-fix|mark-pr|list-pr|reap|agentrail-retrofit)|feat/<|pr/<|pr/\*' \
+      "$claude_md" 2>/dev/null && dg_mentioned=1
+  fi
+
+  # AgentRail state (three cases: saga / pre-retrofit / not used)
+  if [[ -d "$agentrail_dir" ]]; then
+    ok "AgentRail saga present — follow the session protocol in CLAUDE.md"
+  elif (( ar_mentioned )); then
+    wn "CLAUDE.md references AgentRail but .agentrail/ is missing (pre-retrofit repo)."
+    v  "      Do NOT run 'agentrail next' here — it will fail on a missing saga."
+    v  "      To retrofit on a feat branch:  dg-agentrail-retrofit"
+    v  "      Until then, use plain devgroup branching (feat/ -> pr/)."
+  else
+    if (( ar_cli )); then
+      v "  AgentRail not used in this repo (no .agentrail/, no CLAUDE.md mention)."
+      v "  If this repo should adopt AgentRail, retrofit with: dg-agentrail-retrofit"
+    else
+      v "  AgentRail not installed and not referenced here — use plain devgroup branching."
+    fi
+  fi
+
+  # CLAUDE.md awareness of devgroup workflow
+  if (( ! claude_md_exists )); then
+    wn "no CLAUDE.md in this repo."
+    v  "      Consider adding one that describes the devgroup branching workflow"
+    v  "      (feat/<slug> -> dg-mark-pr -> pr/<slug>) and, if applicable, the"
+    v  "      AgentRail session protocol. Do this on a feat branch."
+  elif (( ! dg_mentioned )); then
+    wn "CLAUDE.md does not mention the devgroup workflow (dg-* helpers or feat/pr/ branches)."
+    v  "      It is stale relative to this host's process. Update it on a feat branch"
+    v  "      (add a section describing no-push, feat/ -> pr/, coordinator relay)."
+    v  "      Keep the repo's own project content; only add the missing workflow context."
+  else
+    ok "CLAUDE.md mentions the devgroup workflow"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+h "Helpers (PATH: \$SCRIPTROOT)"
+for h_cmd in dg-env dg-policy dg-new-feature dg-new-fix dg-mark-pr dg-list-pr dg-reap dg-install-agents dg-agentrail-retrofit onboarding; do
+  if command -v "$h_cmd" >/dev/null 2>&1; then
+    printf '  %-20s %s\n' "$h_cmd" "$(command -v "$h_cmd")"
+  else
+    printf '  %-20s %s\n' "$h_cmd" "(missing)"
+  fi
+done
+
+# ---------------------------------------------------------------------------
+h "AI CLIs"
+any_missing=0
+for tool in claude codex gemini opencode; do
+  if command -v "$tool" >/dev/null 2>&1; then
+    printf '  %-10s %s\n' "$tool" "$(command -v "$tool")"
+  else
+    printf '  %-10s %s\n' "$tool" "(not installed)"
+    any_missing=1
+  fi
+done
+if (( any_missing )); then
+  v ""
+  v "  To install missing CLIs into your home: dg-install-agents"
+fi
+
+# ---------------------------------------------------------------------------
+h "Next steps"
+if [[ -z "$repo_root" ]]; then
+  v "  1. cd \$SRCROOT"
+  v "  2. Re-run: onboarding"
+elif [[ "$cur_branch" == "dev" ]]; then
+  v "  • Start a task:   git fetch origin --prune && git switch -c feat/<slug>"
+  v "  • Or a fix:       git switch -c fix/<slug>"
+elif [[ "$cur_branch" == feat/* || "$cur_branch" == fix/* ]]; then
+  v "  • Keep committing on $cur_branch."
+  v "  • When ready:     dg-mark-pr             (renames $cur_branch -> pr/...)"
+elif [[ "$cur_branch" == pr/* ]]; then
+  v "  • Signaled. The coordinator will relay on next cycle."
+  v "  • After merge:    git fetch origin --prune && git switch dev && git branch -D $cur_branch"
+else
+  v "  • You're on '$cur_branch'. Switch to dev (or create feat/ from origin/dev) to start work."
+fi
+
+v ""

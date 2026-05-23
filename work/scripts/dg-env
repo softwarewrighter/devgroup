@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+echo "USER=${USER}"
+echo "DEVWORK=${DEVWORK:-}"
+echo "SRCROOT=${SRCROOT:-}"
+echo "REPOROOT=${REPOROOT:-}"
+echo "TOOLROOT=${TOOLROOT:-}"
+echo "SCRIPTROOT=${SCRIPTROOT:-}"

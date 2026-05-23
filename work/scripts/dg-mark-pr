@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+git rev-parse --is-inside-work-tree >/dev/null
+current="$(git branch --show-current)"
+if [[ -z "$current" ]]; then
+  echo "ERROR: not on a named branch" >&2
+  exit 1
+fi
+if [[ "$current" == "dev" || "$current" == "main" ]]; then
+  echo "ERROR: refusing to rename $current to pr" >&2
+  exit 1
+fi
+topic="${1:-}"
+if [[ -n "$topic" ]]; then
+  target="pr/${topic}"
+else
+  case "$current" in
+    feat/*)    target="pr/${current#feat/}" ;;
+    feature/*) target="pr/${current#feature/}" ;;   # legacy form, still stripped
+    fix/*)     target="pr/${current#fix/}" ;;
+    pr|pr/*)   target="$current" ;;
+    *)
+      echo "ERROR: don't know how to mark '$current' as a pr branch." >&2
+      echo "Switch to a feat/<slug> or fix/<slug> branch first, or pass an explicit slug:" >&2
+      echo "    dg-mark-pr <slug>" >&2
+      exit 1
+      ;;
+  esac
+fi
+if [[ "$current" == "$target" ]]; then
+  echo "Already on $target"
+  exit 0
+fi
+git branch -m "$target"
+echo "Renamed $current -> $target"

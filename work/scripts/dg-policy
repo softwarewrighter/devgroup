@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+cat <<'TXT'
+Devgroup policy:
+- Work only inside your own writable sandbox.
+- Do not push. mike is the only integrator.
+- Base new branches on origin/dev (NOT origin/main).
+- While developing: feat/<topic> or fix/<topic>.
+- When ready: rename feat/<topic> -> pr/<topic>  (use dg-mark-pr).
+- mike scans local clones for pr/* and relays them to dev on GitHub.
+- Full policy: /disk1/github/softwarewrighter/devgroup/docs/branching-pr-strategy.md
+TXT

@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# dg-agentrail-retrofit
+#
+# Retrofit a pre-AgentRail devgroup repo on a dedicated feat branch.
+# Creates feat/agentrail-retrofit (off origin/dev, fallback origin/main),
+# runs 'agentrail setup' (passing any args through to the CLI), and leaves
+# the resulting .agentrail/ (and any CLAUDE.md scaffolding the CLI writes)
+# uncommitted so the worker can review before committing + dg-mark-pr.
+#
+# Refuses to run if:
+#   - agentrail CLI is not on PATH
+#   - not inside a git repo
+#   - .agentrail/ already exists (repo is already retrofitted)
+#   - worktree has uncommitted changes (retrofit should land clean)
+#   - feat/agentrail-retrofit branch already exists
+#
+# Usage:
+#   cd $SRCROOT
+#   dg-agentrail-retrofit [args passed through to 'agentrail setup'...]
+
+if ! command -v agentrail >/dev/null 2>&1; then
+  echo "ERROR: agentrail CLI not found in PATH." >&2
+  exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "ERROR: not inside a git repo. cd to the repo (\$SRCROOT) first." >&2
+  exit 1
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+if [[ -d "$repo_root/.agentrail" ]]; then
+  echo "ERROR: $repo_root/.agentrail already exists — repo is already retrofitted." >&2
+  echo "       Inspect with 'agentrail status' or edit the saga directly." >&2
+  exit 1
+fi
+
+if ! git -C "$repo_root" diff --quiet || ! git -C "$repo_root" diff --cached --quiet; then
+  echo "ERROR: worktree has uncommitted changes. Commit or stash before retrofitting." >&2
+  git -C "$repo_root" status --short >&2
+  exit 1
+fi
+
+branch="feat/agentrail-retrofit"
+if git -C "$repo_root" rev-parse --verify --quiet "$branch" >/dev/null; then
+  echo "ERROR: branch '$branch' already exists." >&2
+  echo "       Delete it (git branch -D $branch) or switch to it to continue." >&2
+  exit 1
+fi
+
+git -C "$repo_root" fetch origin --prune || true
+
+if git -C "$repo_root" rev-parse --verify --quiet origin/dev >/dev/null; then
+  base="origin/dev"
+elif git -C "$repo_root" rev-parse --verify --quiet origin/main >/dev/null; then
+  base="origin/main"
+  echo "NOTE: origin/dev missing; basing '$branch' on origin/main." >&2
+else
+  echo "ERROR: neither origin/dev nor origin/main exists. Cannot pick a base." >&2
+  exit 1
+fi
+
+prev_branch="$(git -C "$repo_root" branch --show-current 2>/dev/null || true)"
+
+echo "==> creating $branch from $base"
+git -C "$repo_root" switch -c "$branch" "$base"
+
+rollback() {
+  # Swallow errors so one failing step doesn't mask the original rc.
+  [[ -n "$prev_branch" ]] && git -C "$repo_root" switch "$prev_branch" 2>/dev/null || true
+  git -C "$repo_root" branch -D "$branch" 2>/dev/null || true
+}
+
+echo "==> running: agentrail setup $*"
+if ! ( cd "$repo_root" && agentrail setup "$@" ); then
+  rc=$?
+  echo "ERROR: 'agentrail setup' exited $rc; rolling back '$branch'." >&2
+  rollback
+  exit "$rc"
+fi
+
+# If agentrail setup succeeded but produced no changes (e.g., user passed
+# --help), don't leave a stray branch behind.
+if [[ ! -d "$repo_root/.agentrail" ]] \
+   && [[ -z "$(git -C "$repo_root" status --porcelain)" ]]; then
+  echo "NOTE: 'agentrail setup' produced no changes; rolling back '$branch'." >&2
+  rollback
+  exit 0
+fi
+
+echo
+echo "Retrofit scaffolding written. Next:"
+echo "  1. Review:         git -C '$repo_root' status"
+echo "  2. Commit:         git -C '$repo_root' add -A && git -C '$repo_root' commit -m 'retrofit: initialize AgentRail saga'"
+echo "  3. Signal ready:   dg-mark-pr"
+echo
+echo "If the CLAUDE.md emitted by 'agentrail setup' doesn't yet mention the"
+echo "devgroup workflow (dg-* / feat/pr/ branches), fold that in before the commit."

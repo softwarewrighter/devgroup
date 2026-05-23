@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+topic="${1:-}"
+if [[ -z "$topic" ]]; then
+  echo "usage: dg-new-fix <topic>" >&2
+  exit 1
+fi
+git rev-parse --is-inside-work-tree >/dev/null
+git switch dev
+git fetch --all --prune || true
+git switch -c "fix/${topic}"
+echo "Created branch fix/${topic}"
