@@ -23,15 +23,15 @@ The replacement binary is `cor24-emu`, built from
 | `cor24-run` | cor24-rs               | deprecated   |
 | `cor24-emu` | sw-cor24-emulator      | installed    |
 | `cor24-dbg` | sw-cor24-emulator      | installed    |
-| `tc24r`     | sw-cor24-x-tinyc       | not yet built |
-| `tc24r-pp`  | sw-cor24-x-tinyc       | not yet built |
-| `pa24r`     | sw-cor24-pcode         | not yet built |
-| `pl24r`     | sw-cor24-pcode         | not yet built |
-| `p24-load`  | sw-cor24-pcode         | not yet built |
-| `p24-dump`  | sw-cor24-pcode         | not yet built |
-| `pv24t`     | sw-cor24-pcode         | not yet built |
-| `pv24d`     | sw-cor24-pcode         | not yet built |
-| `sw-as24.bin` | sw-cor24-assembler   | not yet built |
+| `tc24r`     | sw-cor24-x-tinyc       | installed    |
+| `tc24r-pp`  | sw-cor24-x-tinyc       | installed    |
+| `pa24r`     | sw-cor24-pcode         | installed    |
+| `pl24r`     | sw-cor24-pcode         | installed    |
+| `p24-load`  | sw-cor24-pcode         | installed    |
+| `p24-dump`  | sw-cor24-pcode         | installed    |
+| `pv24t`     | sw-cor24-pcode         | installed    |
+| `pv24d`     | sw-cor24-pcode         | installed    |
+| `sw-as24.bin` | sw-cor24-assembler   | installed    |
 
 ## Repos that depend on cor24-run (deprecated)
 
