@@ -98,6 +98,19 @@ if [[ -n "$TAG" ]]; then
       push origin "refs/tags/${TAG}:refs/tags/${TAG}"
 fi
 
+# Pre-1.0 policy: fast-forward dev to match main after each release so the
+# two branches stay aligned. Post-1.0 this block should be removed — dev will
+# become the forward-development branch for the next major version and
+# divergence from main is expected. The FF is always safe here because the
+# release commit (HEAD on main) has dev as its second parent, i.e. dev is an
+# ancestor of main. No force-push, no rewrite. See mike's "until we reach
+# 1.0 dev and main can be in-sync" decision (2026-05-18).
+echo "==> ff-syncing dev to main (pre-1.0 policy)"
+git -C "$BARE" update-ref refs/heads/dev refs/heads/main
+git -C "$BARE" -c remote.origin.mirror=false \
+    push origin refs/heads/dev:refs/heads/dev
+
 echo
 echo "==> done: ${REPO} released${TAG:+ (tag ${TAG})}"
 echo "   main now: $(git rev-parse --short main)"
+echo "   dev  now: $(git -C "$BARE" rev-parse --short dev) (synced to main)"
