@@ -235,8 +235,12 @@ set_git_identity() {
     *)   echo "WARNING: unknown user prefix for git identity: $user" >&2; return 0 ;;
   esac
   email="${user}@softwarewrighter.com"
-  sudo -u "$user" -H git config --global user.name  "$full_name"
-  sudo -u "$user" -H git config --global user.email "$email"
+  # cd to a world-readable dir so git doesn't try to discover .git from a
+  # cwd the target user can't traverse (e.g. /home/mike if root invoked the
+  # script from there). Without this, `git config --global` aborts with
+  # "fatal: error reading '/home/mike/.git'".
+  ( cd / && sudo -u "$user" -H git config --global user.name  "$full_name" )
+  ( cd / && sudo -u "$user" -H git config --global user.email "$email" )
 }
 
 install_ssh_keys() {

@@ -66,10 +66,28 @@ Run `setup-devgroup-accounts.sh` on large12 after installing prereqs (see
 - clones each user's `primary_repo` from the local bare mirror, which now
   contains the work that was just relayed
 
+There's a chicken-and-egg: `sync-bare-repos.sh` needs `work/bare/` to exist
+(created by setup) and refuses to run under sudo (it requires `mike`).
+`install-shared-rust.sh` hard-codes `-g devgroup` so it needs the group to
+exist first. So the bring-up runs setup twice with sync in between:
+
 ```bash
-# on large12, as mike
-sudo /disk1/github/softwarewrighter/devgroup/scripts/sync-bare-repos.sh   # pulls all bare mirrors fresh from GitHub
-sudo /disk1/github/softwarewrighter/devgroup/scripts/setup-devgroup-accounts.sh
+# on large12, as mike — first pass creates devgroup, users, sandboxes;
+# warns "no bare mirror for ..." for every repo (expected on fresh box).
+cd /disk1/github/softwarewrighter/devgroup    # cwd dev users can traverse
+sudo /disk1/github/softwarewrighter/devgroup/scripts/setup-devgroup-accounts.sh \
+  /disk1/github/softwarewrighter/devgroup/scripts/dev-users.tsv
+
+# shared Rust toolchain — devgroup now exists so this works
+sudo /disk1/github/softwarewrighter/devgroup/scripts/install-shared-rust.sh
+
+# mirror every non-archived repo in the org (runs as mike, NOT sudo)
+/disk1/github/softwarewrighter/devgroup/scripts/sync-bare-repos.sh
+
+# second pass clones each user's primary repo from the now-populated mirrors
+cd /disk1/github/softwarewrighter/devgroup
+sudo /disk1/github/softwarewrighter/devgroup/scripts/setup-devgroup-accounts.sh \
+  /disk1/github/softwarewrighter/devgroup/scripts/dev-users.tsv
 ```
 
 For d* users like dwxtc that have *sibling* clones beyond the primary repo
