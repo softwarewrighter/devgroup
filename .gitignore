@@ -1,3 +1,8 @@
 work/*
 !work/scripts/
+!work/bin/
+work/bin/*
+!work/bin/pas24
+!work/bin/pvm24
+!work/bin/plsw
 .claude/

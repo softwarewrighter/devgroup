@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+# pas24 — Compile a Pascal source file using the COR24 p24p compiler
+#
+# Usage:
+#   pas24 <file.pas>                    Compile + link + assemble → .p24
+#   pas24 <file.pas> --run              Compile + link + assemble + run on PVM
+#   pas24 <file.pas> -o <out.p24>       Specify output path
+#   pas24 <file.pas> --spc              Emit .spc only (no assembly)
+#
+# Options:
+#   --run              Run the compiled program on the P-Code VM after building
+#   -o <path>          Output file (default: <basename>.p24 in current dir)
+#   --spc              Stop after compilation (emit .spc, skip link/assemble)
+#   -n <count>         Max instructions for compiler and VM (default: 50000000)
+#   --terminal         Pass --terminal to VM when running
+#   -u <str>           Preload UART input for running program
+set -euo pipefail
+
+LIBDIR="/disk1/github/softwarewrighter/devgroup/work/lib"
+P24P_S="$LIBDIR/pascal/p24p.s"
+RUNTIME="$LIBDIR/pascal/runtime.spc"
+RELOCATE="$LIBDIR/pascal/relocate_p24.py"
+PVM="$LIBDIR/pcode/pvm.s"
+MAX_INSN=50000000
+
+die() { echo "pas24: $*" >&2; exit 1; }
+
+[ $# -ge 1 ] || die "usage: pas24 <file.pas> [--run] [-o out.p24] [--spc]"
+
+INPUT=""
+OUTPUT=""
+RUN=false
+SPC_ONLY=false
+RUN_ARGS=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --run)       RUN=true; shift ;;
+    --spc)       SPC_ONLY=true; shift ;;
+    -o)          OUTPUT="$2"; shift 2 ;;
+    -n)          MAX_INSN="$2"; shift 2 ;;
+    --terminal|--echo|--dump) RUN_ARGS+=("$1"); shift ;;
+    -u)          RUN_ARGS+=("$1" "$2"); shift 2 ;;
+    -*)          die "unknown option: $1" ;;
+    *)           INPUT="$1"; shift ;;
+  esac
+done
+
+[ -n "$INPUT" ] || die "no input file specified"
+[ -f "$INPUT" ] || die "file not found: $INPUT"
+[ -f "$P24P_S" ] || die "Pascal compiler not found: $P24P_S"
+
+NAME=$(basename "$INPUT" .pas)
+
+TMP=$(mktemp -d)
+trap "rm -rf $TMP" EXIT
+
+# Step 1: Compile Pascal to .spc via p24p
+SPC_OUTPUT=$(cor24-run --run "$P24P_S" -u "$(cat "$INPUT")"$'\x04' \
+  --speed 0 -n "$MAX_INSN" 2>&1 | grep -v '^\[UART' | sed 's/^UART output: //')
+
+if ! echo "$SPC_OUTPUT" | grep -q "; OK"; then
+  echo "pas24: compilation failed:" >&2
+  echo "$SPC_OUTPUT" | grep -i "error" >&2
+  exit 1
+fi
+
+echo "$SPC_OUTPUT" | sed -n '/^\.module/,/^\.endmodule/p' > "$TMP/$NAME.spc"
+
+if $SPC_ONLY; then
+  OUT="${OUTPUT:-${NAME}.spc}"
+  cp "$TMP/$NAME.spc" "$OUT"
+  echo "$OUT"
+  exit 0
+fi
+
+# Step 2: Link with runtime
+pl24r "$RUNTIME" "$TMP/$NAME.spc" -o "$TMP/${NAME}_linked.spc" 2>/dev/null \
+  || die "linker failed"
+
+# Step 3: Assemble to .p24
+pa24r "$TMP/${NAME}_linked.spc" -o "$TMP/$NAME.p24" 2>/dev/null \
+  || die "assembler failed"
+
+# Step 4: Relocate for load address 0x010000
+python3 "$RELOCATE" "$TMP/$NAME.p24" 0x010000 >/dev/null \
+  || die "relocate failed"
+
+# Output the .p24 (relocate produces .bin)
+OUT="${OUTPUT:-${NAME}.p24}"
+cp "$TMP/${NAME}.bin" "$OUT"
+
+if $RUN; then
+  # Step 5: Run on PVM
+  cor24-run --assemble "$PVM" "$TMP/pvm.bin" "$TMP/pvm.lst" >/dev/null 2>&1
+  CODE_PTR=$(grep -A1 "code_ptr:" "$TMP/pvm.lst" | tail -1 | awk '{print $1}' | tr -d ':')
+  [ -n "$CODE_PTR" ] || die "could not resolve code_ptr from pvm.lst"
+
+  cor24-run --load-binary "$TMP/pvm.bin@0" \
+    --load-binary "$OUT@0x010000" \
+    --patch "0x${CODE_PTR}=0x010000" \
+    --entry 0 --speed 0 -n "$MAX_INSN" "${RUN_ARGS[@]}" 2>&1 | \
+    grep -v '^\[UART' | grep -v '^\[CPU ' | grep -v '^Assembled' | \
+    grep -v '^Running' | grep -v '^Executed' | grep -v '^Loaded' | \
+    grep -v '^Patched' | grep -v '^Entry point:' | \
+    grep -v '^PVM OK' | grep -v '^UART output: PVM OK' | \
+    grep -v '^CPU halted' | grep -v '^$' | grep -v '^HALT$' | \
+    sed 's/^UART output: //'
+else
+  echo "$OUT"
+fi

@@ -32,6 +32,29 @@ The replacement binary is `cor24-emu`, built from
 | `pv24t`     | sw-cor24-pcode         | installed    |
 | `pv24d`     | sw-cor24-pcode         | installed    |
 | `sw-as24.bin` | sw-cor24-assembler   | installed    |
+| `cor24-asm` | sw-cor24-x-assembler   | installed    |
+| `link24`    | sw-cor24-plsw (linker) | installed    |
+| `meta-gen`  | sw-cor24-plsw (linker) | installed    |
+| `pas24`     | wrapper script         | installed    |
+| `pvm24`     | wrapper script         | installed    |
+| `plsw`      | wrapper script         | installed    |
+| `agentrail` | symlink → mike sw-install | installed |
+| `sw-checklist` | symlink → mike sw-install | installed |
+| `reg-rs`    | symlink → mike sw-install | installed |
+| `pjmai-rs`  | symlink → mike sw-install | installed |
+
+## Shared library artifacts (work/lib/)
+
+Pre-built artifacts consumed by the wrapper scripts above:
+
+| Path | Source | Description |
+|------|--------|-------------|
+| `lib/pcode/pvm.s` | sw-cor24-pcode | P-Code VM (assembly source) |
+| `lib/pcode/pvmasm.s` | sw-cor24-pcode | Integrated assembler+VM |
+| `lib/pascal/p24p.s` | sw-cor24-pascal | Pascal compiler (assembly source) |
+| `lib/pascal/runtime.spc` | sw-cor24-pascal | Pascal runtime library |
+| `lib/pascal/relocate_p24.py` | sw-cor24-pascal | P-code relocation helper |
+| `lib/plsw/plsw.lgo` | sw-cor24-plsw | PL/SW compiler (.lgo artifact) |
 
 ## Repos that depend on cor24-run (deprecated)
 

@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# plsw — Compile and optionally run a PL/SW program
+#
+# Usage:
+#   plsw <program.plsw>                     Compile + assemble + run
+#   plsw <macro.msw> ... <program.plsw>     Compile with macros + run
+#   plsw <program.plsw> --asm              Compile to .s only (no run)
+#   plsw <program.plsw> --lgo              Compile to .lgo only (no run)
+#   plsw <program.plsw> -o <out.lgo>      Compile to specified .lgo
+#
+# Options:
+#   --asm              Stop after compilation (emit .s)
+#   --lgo              Stop after assembly (emit .lgo)
+#   -o <path>          Output file (used with --asm or --lgo)
+#   --no-run           Compile + assemble but don't execute
+#   -n <count>         Max instructions for compiler (default: 200000000)
+#   --run-n <count>    Max instructions for program run (default: 10000000)
+#   --verbose          Show pipeline diagnostics
+set -euo pipefail
+
+LIBDIR="/disk1/github/softwarewrighter/devgroup/work/lib/plsw"
+COMPILER_LGO="$LIBDIR/plsw.lgo"
+COMPILE_MAX=200000000
+RUN_MAX=10000000
+
+die() { echo "plsw: $*" >&2; exit 1; }
+
+[ $# -ge 1 ] || die "usage: plsw [macro.msw ...] <program.plsw> [options]"
+[ -f "$COMPILER_LGO" ] || die "compiler not found: $COMPILER_LGO"
+
+MACROS=()
+MAIN=""
+OUTPUT=""
+STOP_AT=""
+NO_RUN=false
+VERBOSE=false
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --asm)       STOP_AT="asm"; shift ;;
+    --lgo)       STOP_AT="lgo"; shift ;;
+    --no-run)    NO_RUN=true; shift ;;
+    --verbose)   VERBOSE=true; shift ;;
+    -o)          OUTPUT="$2"; shift 2 ;;
+    -n)          COMPILE_MAX="$2"; shift 2 ;;
+    --run-n)     RUN_MAX="$2"; shift 2 ;;
+    *.msw)       MACROS+=("$1"); shift ;;
+    *.plsw)      MAIN="$1"; shift ;;
+    -*)          die "unknown option: $1" ;;
+    *)           die "unknown file type: $1 (expected .plsw or .msw)" ;;
+  esac
+done
+
+[ -n "$MAIN" ] || die "no .plsw file specified"
+[ -f "$MAIN" ] || die "file not found: $MAIN"
+for m in "${MACROS[@]+"${MACROS[@]}"}"; do
+  [ -f "$m" ] || die "macro file not found: $m"
+done
+
+NAME=$(basename "$MAIN" .plsw)
+
+# Build UART input
+build_input() {
+  printf 'c\\n'
+  if [ ${#MACROS[@]} -gt 0 ]; then
+    for m in "${MACROS[@]}"; do
+      printf 'FILE:%s\\n' "$(basename "$m")"
+      while IFS= read -r line; do
+        printf '%s\\n' "$line"
+      done < "$m"
+      printf '\\x1E'
+    done
+    printf 'SOURCE:\\n'
+  fi
+  while IFS= read -r line; do
+    printf '%s\\n' "$line"
+  done < "$MAIN"
+  printf '\\x04'
+}
+
+INPUT=$(build_input)
+
+# Compile: run the PL/SW compiler on the emulator
+COMPILER_OUT=$(cor24-emu --lgo "$COMPILER_LGO" -u "$INPUT" -n "$COMPILE_MAX" -t 120 --speed 0 2>&1)
+
+# Extract UART output
+UART_OUT=$(echo "$COMPILER_OUT" | sed -n '/^UART output:/,/^Executed /{/^Executed /d;p;}' | sed '1s/^UART output: //')
+
+if echo "$UART_OUT" | grep -q "compilation failed\|COMPILE ERROR\|ERROR:"; then
+  echo "plsw: compilation failed:" >&2
+  echo "$UART_OUT" | grep -E "ERROR:|failed" >&2
+  exit 1
+fi
+
+# Extract assembly between markers
+START_MARKER="--- generated assembly ---"
+END_MARKER="--- end assembly ---"
+ASM=$(echo "$UART_OUT" | sed -n "/$START_MARKER/,/$END_MARKER/{/$START_MARKER/d;/$END_MARKER/d;p;}")
+
+if [ -z "$ASM" ]; then
+  echo "plsw: no assembly output found" >&2
+  if $VERBOSE; then
+    echo "Compiler output (last 20 lines):" >&2
+    echo "$UART_OUT" | tail -20 >&2
+  fi
+  exit 1
+fi
+
+ASM_LINES=$(echo "$ASM" | wc -l | tr -d ' ')
+$VERBOSE && echo "=== Compiled $(basename "$MAIN") ($ASM_LINES lines of assembly) ===" >&2
+echo "$UART_OUT" | grep "registered:" >&2 2>/dev/null || true
+
+# Stop at .s if requested
+if [ "$STOP_AT" = "asm" ]; then
+  OUT="${OUTPUT:-${NAME}.s}"
+  echo "$ASM" > "$OUT"
+  echo "$OUT"
+  exit 0
+fi
+
+# Assemble to .lgo
+TMP=$(mktemp -d /tmp/plsw-XXXXXX)
+trap "rm -rf $TMP" EXIT
+echo "$ASM" > "$TMP/$NAME.s"
+
+cor24-asm "$TMP/$NAME.s" -o "$TMP/$NAME.lgo" || die "assembly failed"
+
+# Stop at .lgo if requested
+if [ "$STOP_AT" = "lgo" ] || $NO_RUN; then
+  OUT="${OUTPUT:-${NAME}.lgo}"
+  cp "$TMP/$NAME.lgo" "$OUT"
+  echo "$OUT"
+  exit 0
+fi
+
+# Run the assembled program
+$VERBOSE && echo "=== Running ===" >&2
+RUN_OUT=$(cor24-emu --lgo "$TMP/$NAME.lgo" -n "$RUN_MAX" -t 30 --speed 0 2>&1)
+
+# Extract program output
+PROG_OUT=$(echo "$RUN_OUT" | sed -n '/^UART output:/,/^Executed /{/^Executed /d;p;}' | sed '1s/^UART output: //')
+
+if [ -n "$PROG_OUT" ]; then
+  echo "$PROG_OUT"
+else
+  $VERBOSE && echo "(no output)" >&2
+fi

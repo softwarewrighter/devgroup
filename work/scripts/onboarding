@@ -186,6 +186,39 @@ if (( any_missing )); then
 fi
 
 # ---------------------------------------------------------------------------
+h "Shared toolchain (PATH: \$TOOLROOT)"
+cat <<'TOOLCHAIN'
+  Host-native binaries (Rust, compiled for Linux x86_64):
+    cor24-emu        COR24 emulator (runtime only)
+    cor24-dbg        COR24 debugger
+    cor24-asm        COR24 cross-assembler (.s -> .lgo/.bin)
+    tc24r            C cross-transpiler (C -> COR24 .s)
+    tc24r-pp         C preprocessor
+    pa24r            P-code assembler (.spc -> .p24)
+    pl24r            P-code linker (multi-unit .spc -> linked .spc)
+    p24-load         P-code loader (multi-unit .p24 -> .p24m)
+    link24           Module linker (PL/SW modules -> linked binary)
+    meta-gen         Metadata generator (for link24)
+    sw-as24.bin      COR24 native self-hosting assembler
+
+  Wrapper scripts (full compilation pipelines):
+    pas24 <file.pas> [--run]    Compile Pascal (p24p -> pl24r -> pa24r -> .p24)
+    pvm24 <file.p24>            Run .p24 on P-Code VM
+    pvm24 --spc <file.spc>      Assemble .spc and run on integrated VM
+    plsw <file.plsw> [opts]     Compile + assemble + run PL/SW program
+    plsw <file.plsw> --lgo      Compile PL/SW to .lgo artifact
+
+  Symlinked utilities:
+    agentrail        AgentRail saga/step tracker
+    sw-checklist     Pre-commit checklist tool
+    reg-rs           Regression test runner
+    pjmai-rs         Project journal / AI session logger
+
+  Documentation:
+    /disk1/github/softwarewrighter/devgroup/docs/deprecate-cor24-rs.md
+TOOLCHAIN
+
+# ---------------------------------------------------------------------------
 h "Next steps"
 if [[ -z "$repo_root" ]]; then
   v "  1. cd \$SRCROOT"
