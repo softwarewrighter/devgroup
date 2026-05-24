@@ -102,6 +102,27 @@ for r in sw-cor24-emulator sw-cor24-isa sw-cor24-x-assembler sw-cor24-x-tinyc; d
 done
 ```
 
+## Phase 3b — build shared toolchain
+
+After the accounts and bare mirrors are in place, build all shared binaries
+and library artifacts that d* users need on their PATH:
+
+```bash
+# as mike (NOT sudo)
+./scripts/build-shared-toolchain.sh
+```
+
+This builds cor24-emu, cor24-asm, tc24r, pa24r, pvm24, pas24, plsw, and all
+other tools into `work/bin/` and `work/lib/`. See the script for the full
+list and prerequisites (just, python3 via pacman). Wrapper scripts (pas24,
+pvm24, plsw) are tracked in git and already present after clone; the script
+only rebuilds the compiled artifacts.
+
+Prereqs (pacman): `just python base-devel`
+
+The symlinked tools (agentrail, reg-rs, pjmai-rs, sw-checklist) require mike
+to have them installed via `sw-install` first.
+
 ## Phase 4 — resume work on large12 (as the d* user)
 
 ```bash
