@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# basic24 — COR24 BASIC interpreter REPL and program runner
+#
+# Usage:
+#   basic24                        Start interactive BASIC REPL
+#   basic24 <file.bas>             Run a BASIC program (batch)
+#   basic24 <file.bas> --quiet     Suppress startup banner
+#   basic24 --load <file.bas>      Load program via SRAM (for large files)
+#
+# The default mode uses pv24t (host-side pcode interpreter) for speed.
+# The --load mode uses cor24-run + pvm.s with --load-binary for programs
+# that exceed the UART buffer (~512 bytes).
+set -euo pipefail
+
+LIBDIR="/disk1/github/softwarewrighter/devgroup/work/lib"
+BASIC_P24="$LIBDIR/basic/basic.p24"
+
+die() { echo "basic24: $*" >&2; exit 1; }
+
+[ -f "$BASIC_P24" ] || die "interpreter not found: $BASIC_P24 (run build-shared-toolchain.sh)"
+
+PROG=""
+QUIET=false
+LOAD_MODE=false
+MAX_INSN=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --quiet|-q) QUIET=true; shift ;;
+    --load)     LOAD_MODE=true; shift ;;
+    -n)         MAX_INSN="$2"; shift 2 ;;
+    --*)        die "unknown option: $1" ;;
+    *)
+      if [ -f "$1" ]; then
+        PROG="$1"
+      else
+        die "file not found: $1"
+      fi
+      shift ;;
+  esac
+done
+
+if $LOAD_MODE && [ -n "$PROG" ]; then
+  # Large file mode: load .bas into SRAM at 0x040000, feed RUN+BYE via UART
+  exec cor24-interpret --mode pcode --interp "$BASIC_P24" \
+    --no-terminal -u $'RUN\nBYE\n\x04' --quiet \
+    -- --load-binary "$PROG@0x040000"
+fi
+
+if [ -n "$PROG" ]; then
+  # Standard batch mode via pv24t (fast, host-side)
+  INPUT="$(cat "$PROG")"$'\n\x04'
+  pv24t "$BASIC_P24" -i "$INPUT" -n "$MAX_INSN" 2>&1 | \
+    awk -v quiet="$($QUIET && echo 1 || echo 0)" '
+      {
+        sub(/^>+/, "")
+        if (quiet == "1" && NR == 1 && $0 == "COR24 BASIC V1") next
+        if (quiet == "1" && NR == 2 && $0 == "READY") next
+        if ($0 != "") print
+      }'
+else
+  # Interactive REPL via pv24t
+  exec pv24t "$BASIC_P24" -n "$MAX_INSN"
+fi
