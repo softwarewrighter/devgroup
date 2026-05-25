@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# apl24 — COR24 APL interpreter REPL and program runner
+#
+# Usage:
+#   apl24                      Start interactive APL REPL
+#   apl24 <file.a24>           Load APL image and run in batch mode
+#   apl24 <file.a24> --terminal  Load image then enter interactive mode
+#   apl24 -u '2+3\n'          Evaluate expression in batch mode
+set -euo pipefail
+
+LIBDIR="/disk1/github/softwarewrighter/devgroup/work/lib/apl"
+INTERP="$LIBDIR/apl.s"
+
+# APL image loading constants (must match src/main.c)
+APL_IMAGE_BASE="0x080000"
+APL_IMAGE_PTR="0x09FF00"
+
+ARGS=(--mode native-s --interp "$INTERP")
+PROG=""
+BATCH=false
+FORCE_TERMINAL=false
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --terminal)  FORCE_TERMINAL=true; shift ;;
+    -u)          ARGS+=(-u "$2"); BATCH=true; shift 2 ;;
+    -n)          ARGS+=(-n "$2"); shift 2 ;;
+    --quiet)     ARGS+=(--quiet); shift ;;
+    --*)         ARGS+=("$1"); shift ;;
+    *)
+      if [ -f "$1" ]; then
+        PROG="$1"
+      else
+        echo "apl24: file not found: $1" >&2; exit 1
+      fi
+      shift ;;
+  esac
+done
+
+if [ -n "$PROG" ]; then
+  ARGS+=(--prog "$PROG" --prog-addr "$APL_IMAGE_BASE")
+  ARGS+=(-- --patch "$APL_IMAGE_PTR=$APL_IMAGE_BASE")
+  if $FORCE_TERMINAL; then
+    ARGS+=(--terminal --echo)
+  else
+    ARGS+=(--no-terminal --quiet)
+  fi
+elif $BATCH; then
+  ARGS+=(--no-terminal --quiet)
+else
+  ARGS+=(--echo)
+fi
+
+exec cor24-interpret "${ARGS[@]}"

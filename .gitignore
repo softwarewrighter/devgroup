@@ -7,6 +7,8 @@ work/bin/*
 !work/bin/pvm24
 !work/bin/plsw
 !work/bin/forth24
+!work/bin/apl24
+!work/bin/lisp24
 !work/bin/snobol24
 !work/bin/prolog24
 .claude/

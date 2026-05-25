@@ -208,6 +208,13 @@ cat <<'TOOLCHAIN'
     plsw <file.plsw> [opts]     Compile + assemble + run PL/SW program
     plsw <file.plsw> --lgo      Compile PL/SW to .lgo artifact
 
+  Interpreter REPLs and runners (via cor24-interpret):
+    forth24                     Forth REPL (or forth24 <file.fth> for batch)
+    apl24                       APL REPL (or apl24 <file.a24> for image load)
+    lisp24                      MacroLisp REPL (or lisp24 <file.l24> for eval)
+    snobol24 <file.sno>         Run SNOBOL4 program (batch only)
+    prolog24                    Prolog LAM VM (or prolog24 <file.lam>)
+
   Symlinked utilities:
     agentrail        AgentRail saga/step tracker
     sw-checklist     Pre-commit checklist tool

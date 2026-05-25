@@ -35,9 +35,15 @@ The replacement binary is `cor24-emu`, built from
 | `cor24-asm` | sw-cor24-x-assembler   | installed    |
 | `link24`    | sw-cor24-plsw (linker) | installed    |
 | `meta-gen`  | sw-cor24-plsw (linker) | installed    |
+| `cor24-interpret` | interpreter launcher helper | installed |
 | `pas24`     | wrapper script         | installed    |
 | `pvm24`     | wrapper script         | installed    |
 | `plsw`      | wrapper script         | installed    |
+| `forth24`   | wrapper script         | installed    |
+| `apl24`     | wrapper script         | installed    |
+| `lisp24`    | wrapper script         | installed    |
+| `snobol24`  | wrapper script         | installed    |
+| `prolog24`  | wrapper script         | installed    |
 | `agentrail` | symlink → mike sw-install | installed |
 | `sw-checklist` | symlink → mike sw-install | installed |
 | `reg-rs`    | symlink → mike sw-install | installed |
@@ -55,6 +61,11 @@ Pre-built artifacts consumed by the wrapper scripts above:
 | `lib/pascal/runtime.spc` | sw-cor24-pascal | Pascal runtime library |
 | `lib/pascal/relocate_p24.py` | sw-cor24-pascal | P-code relocation helper |
 | `lib/plsw/plsw.lgo` | sw-cor24-plsw | PL/SW compiler (.lgo artifact) |
+| `lib/forth/forth.s` | sw-cor24-forth | Forth DTC kernel (assembly source) |
+| `lib/apl/apl.s` | sw-cor24-apl | APL interpreter (C→assembly via tc24r) |
+| `lib/macrolisp/repl-standard.s` | sw-cor24-macrolisp | MacroLisp REPL (C→assembly via tc24r) |
+| `lib/snobol4/snobol4.bin` | sw-cor24-snobol4 | SNOBOL4 interpreter (PL/SW→linked binary) |
+| `lib/prolog/lam.bin` | sw-cor24-prolog | Prolog LAM VM (PL/SW→linked binary) |
 
 ## Repos that depend on cor24-run (deprecated)
 
