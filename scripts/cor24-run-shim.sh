@@ -40,6 +40,9 @@ printf '%s\tuser=%s\tpid=%d\tppid=%d\tppid_cmd=%q\tcwd=%q\targs=%q\n' \
     "$ts" "$user" "$$" "$PPID" "$ppid_cmd" "$PWD" "$*" \
     >> "$LOG" 2>/dev/null || true
 
+# Emit a one-line deprecation notice to stderr so agents see it.
+echo "DEPRECATED: cor24-run is replaced by cor24-asm + cor24-emu. See: onboarding" >&2
+
 # Forward to legacy binary, preserving exit code + stdio.
 if [[ -x "$LEGACY" ]]; then
     exec "$LEGACY" "$@"

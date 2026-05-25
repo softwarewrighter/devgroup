@@ -226,6 +226,27 @@ cat <<'TOOLCHAIN'
 TOOLCHAIN
 
 # ---------------------------------------------------------------------------
+h "DEPRECATION: cor24-run"
+cat <<'DEPRECATION'
+  cor24-run is DEPRECATED. Use cor24-asm + cor24-emu instead.
+  Every invocation is logged. The binary will be removed soon.
+
+  Migration:
+    cor24-run --assemble in.s out.bin out.lst
+      → cor24-asm in.s --bin out.bin --listing out.lst
+
+    cor24-run --load-binary file@addr --entry 0 [opts]
+      → cor24-emu --load-binary file@addr --entry 0 [opts]
+
+    cor24-run --run input.s [opts]
+      → cor24-asm input.s --bin /tmp/prog.bin
+        && cor24-emu --load-binary /tmp/prog.bin@0 --entry 0 [opts]
+
+  Or use the wrapper scripts (pas24, pvm24, plsw, basic24, forth24, etc.)
+  which handle the toolchain invocation for you.
+DEPRECATION
+
+# ---------------------------------------------------------------------------
 h "Next steps"
 if [[ -z "$repo_root" ]]; then
   v "  1. cd \$SRCROOT"
