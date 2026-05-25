@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# snobol24 — COR24 SNOBOL4 program runner
+#
+# Usage:
+#   snobol24 <program.sno>                Run SNOBOL4 program
+#   snobol24 <program.sno> <data.dat>     Run with data file
+#   snobol24 <program.sno> --quiet        Suppress diagnostics
+set -euo pipefail
+
+LIBDIR="/disk1/github/softwarewrighter/devgroup/work/lib/snobol4"
+INTERP="$LIBDIR/snobol4.bin"
+
+die() { echo "snobol24: $*" >&2; exit 1; }
+
+[ $# -ge 1 ] || die "usage: snobol24 <program.sno> [data.dat] [--quiet]"
+
+PROG=""
+DATA=""
+QUIET=false
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --quiet) QUIET=true; shift ;;
+    -n)      shift 2 ;;  # absorbed below
+    *)
+      if [ -z "$PROG" ]; then
+        PROG="$1"
+      elif [ -z "$DATA" ]; then
+        DATA="$1"
+      else
+        die "unexpected argument: $1"
+      fi
+      shift ;;
+  esac
+done
+
+[ -n "$PROG" ] || die "no .sno file specified"
+[ -f "$PROG" ] || die "file not found: $PROG"
+
+ARGS=(--mode binary --interp "$INTERP" --prog "$PROG" --prog-addr 0xE0000 --no-terminal --quiet)
+
+if [ -n "$DATA" ]; then
+  [ -f "$DATA" ] || die "data file not found: $DATA"
+  ARGS+=(--data "$DATA" --data-addr 0xF0000)
+fi
+
+exec cor24-interpret "${ARGS[@]}"

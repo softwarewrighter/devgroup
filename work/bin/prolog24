@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# prolog24 — COR24 Prolog (LAM VM) runner
+#
+# Usage:
+#   prolog24                       Start interactive Prolog REPL
+#   prolog24 <program.lam>         Load LAM bytecode and run
+#   prolog24 --terminal            Force interactive mode
+set -euo pipefail
+
+LIBDIR="/disk1/github/softwarewrighter/devgroup/work/lib/prolog"
+INTERP="$LIBDIR/lam.bin"
+
+die() { echo "prolog24: $*" >&2; exit 1; }
+
+ARGS=(--mode binary --interp "$INTERP" --echo)
+PROG=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -u)          ARGS+=(-u "$2"); shift 2 ;;
+    -n)          ARGS+=(-n "$2"); shift 2 ;;
+    --quiet)     ARGS+=(--quiet); shift ;;
+    --terminal)  ARGS+=(--terminal); shift ;;
+    --*)         ARGS+=("$1"); shift ;;
+    *)
+      if [ -f "$1" ]; then
+        PROG="$1"
+      else
+        die "file not found: $1"
+      fi
+      shift ;;
+  esac
+done
+
+if [ -n "$PROG" ]; then
+  ARGS+=(--prog "$PROG" --prog-addr 0x080000)
+fi
+
+exec cor24-interpret "${ARGS[@]}"

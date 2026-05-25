@@ -2,7 +2,11 @@ work/*
 !work/scripts/
 !work/bin/
 work/bin/*
+!work/bin/cor24-interpret
 !work/bin/pas24
 !work/bin/pvm24
 !work/bin/plsw
+!work/bin/forth24
+!work/bin/snobol24
+!work/bin/prolog24
 .claude/

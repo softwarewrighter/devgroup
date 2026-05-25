@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# forth24 — COR24 Forth REPL and program runner
+#
+# Usage:
+#   forth24                    Start interactive Forth REPL
+#   forth24 <file.fth>         Load and run Forth source via UART
+#   forth24 -u 'WORDS\n'      Feed specific input
+set -euo pipefail
+
+LIBDIR="/disk1/github/softwarewrighter/devgroup/work/lib/forth"
+INTERP="$LIBDIR/forth.s"
+
+ARGS=(--mode native-s --interp "$INTERP")
+PROG_INPUT=""
+BATCH=false
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -u)        ARGS+=(-u "$2"); BATCH=true; shift 2 ;;
+    -n)        ARGS+=(-n "$2"); shift 2 ;;
+    --quiet)   ARGS+=(--quiet); shift ;;
+    --*)       ARGS+=("$1"); shift ;;
+    *)
+      if [ -f "$1" ]; then
+        PROG_INPUT="$1"
+      else
+        echo "forth24: file not found: $1" >&2; exit 1
+      fi
+      shift ;;
+  esac
+done
+
+if [ -n "$PROG_INPUT" ]; then
+  BATCH=true
+  ARGS+=(-u "$(cat "$PROG_INPUT")"$'\n' --quiet)
+fi
+
+if $BATCH; then
+  ARGS+=(--no-terminal)
+else
+  ARGS+=(--echo)
+fi
+
+exec cor24-interpret "${ARGS[@]}"

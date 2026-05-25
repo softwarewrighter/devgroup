@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# cor24-interpret — Generic COR24 interpreter launcher
+#
+# Used by per-language wrapper scripts (forth24, snobol24, etc.) to start
+# a REPL or run a program on the COR24 emulator.
+#
+# Usage (called by wrapper scripts, not directly by users):
+#   cor24-interpret --mode native-s  --interp <file.s> [options]
+#   cor24-interpret --mode binary    --interp <file.bin> --prog-addr <addr> [options]
+#   cor24-interpret --mode pcode     --interp <file.p24> --prog-addr <addr> [options]
+#
+# Modes:
+#   native-s   Assembly source (.s), run via cor24-run --run
+#   binary     Pre-linked binary (.bin), load via cor24-emu --load-binary
+#   pcode      P-code bytecode (.p24), run via pvm24
+#
+# Options:
+#   --interp <path>       Path to interpreter artifact (required)
+#   --prog <file>         Program file to load (optional; REPL if omitted)
+#   --prog-addr <addr>    Address to load program at (hex, e.g. 0x080000)
+#   --data <file>         Data file to load (optional)
+#   --data-addr <addr>    Address to load data at (hex)
+#   --terminal            Force interactive terminal mode
+#   --no-terminal         Suppress terminal (batch mode)
+#   --echo                Enable local echo in terminal mode
+#   -n <count>            Max instructions (default: 200000000)
+#   -u <str>              UART input string
+#   --speed <ips>         Speed (default: 0 = max)
+#   --quiet               Filter emulator diagnostics from output
+#   -- <extra-args>       Pass remaining args directly to emulator
+set -euo pipefail
+
+die() { echo "cor24-interpret: $*" >&2; exit 1; }
+
+MODE=""
+INTERP=""
+PROG=""
+PROG_ADDR=""
+DATA=""
+DATA_ADDR=""
+TERMINAL=""
+ECHO=false
+MAX_INSN=200000000
+SPEED=0
+UART_INPUT=""
+QUIET=false
+EXTRA_ARGS=()
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --mode)         MODE="$2"; shift 2 ;;
+    --interp)       INTERP="$2"; shift 2 ;;
+    --prog)         PROG="$2"; shift 2 ;;
+    --prog-addr)    PROG_ADDR="$2"; shift 2 ;;
+    --data)         DATA="$2"; shift 2 ;;
+    --data-addr)    DATA_ADDR="$2"; shift 2 ;;
+    --terminal)     TERMINAL=yes; shift ;;
+    --no-terminal)  TERMINAL=no; shift ;;
+    --echo)         ECHO=true; shift ;;
+    -n)             MAX_INSN="$2"; shift 2 ;;
+    --speed)        SPEED="$2"; shift 2 ;;
+    -u)             UART_INPUT="$2"; shift 2 ;;
+    --quiet)        QUIET=true; shift ;;
+    --)             shift; EXTRA_ARGS+=("$@"); break ;;
+    *)              die "unknown option: $1" ;;
+  esac
+done
+
+[ -n "$MODE" ] || die "--mode required (native-s, binary, pcode)"
+[ -n "$INTERP" ] || die "--interp required"
+[ -f "$INTERP" ] || die "interpreter not found: $INTERP"
+
+# Default: terminal if no program, batch if program provided
+if [ -z "$TERMINAL" ]; then
+  if [ -z "$PROG" ]; then TERMINAL=yes; else TERMINAL=no; fi
+fi
+
+filter_output() {
+  if $QUIET; then
+    grep -v '^\[UART' | grep -v '^\[CPU ' | grep -v '^Assembled' | \
+    grep -v '^Running' | grep -v '^Executed' | grep -v '^Loaded' | \
+    grep -v '^Patched' | grep -v '^Entry point:' | \
+    grep -v '^CPU halted' | grep -v '^$' | \
+    sed 's/^UART output: //'
+  else
+    cat
+  fi
+}
+
+case "$MODE" in
+  native-s)
+    CMD=(cor24-run --run "$INTERP" --speed "$SPEED" -n "$MAX_INSN")
+    [ "$TERMINAL" = "yes" ] && CMD+=(--terminal)
+    $ECHO && CMD+=(--echo)
+    [ -n "$UART_INPUT" ] && CMD+=(-u "$UART_INPUT")
+    if [ -n "$PROG" ]; then
+      [ -n "$PROG_ADDR" ] || die "--prog-addr required with --prog in native-s mode"
+      CMD+=(--load-binary "$PROG@$PROG_ADDR")
+    fi
+    if [ -n "$DATA" ]; then
+      [ -n "$DATA_ADDR" ] || die "--data-addr required with --data"
+      CMD+=(--load-binary "$DATA@$DATA_ADDR")
+    fi
+    CMD+=("${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}")
+    if $QUIET; then
+      "${CMD[@]}" 2>&1 | filter_output
+    else
+      exec "${CMD[@]}"
+    fi
+    ;;
+
+  binary)
+    CMD=(cor24-emu --load-binary "$INTERP@0" --entry 0 --speed "$SPEED" -n "$MAX_INSN")
+    [ "$TERMINAL" = "yes" ] && CMD+=(--terminal)
+    $ECHO && CMD+=(--echo)
+    [ -n "$UART_INPUT" ] && CMD+=(-u "$UART_INPUT")
+    if [ -n "$PROG" ]; then
+      [ -n "$PROG_ADDR" ] || die "--prog-addr required with --prog in binary mode"
+      CMD+=(--load-binary "$PROG@$PROG_ADDR")
+    fi
+    if [ -n "$DATA" ]; then
+      [ -n "$DATA_ADDR" ] || die "--data-addr required with --data"
+      CMD+=(--load-binary "$DATA@$DATA_ADDR")
+    fi
+    CMD+=("${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}")
+    if $QUIET; then
+      "${CMD[@]}" 2>&1 | filter_output
+    else
+      exec "${CMD[@]}"
+    fi
+    ;;
+
+  pcode)
+    CMD=(pvm24 "$INTERP" -n "$MAX_INSN")
+    [ "$TERMINAL" = "yes" ] && CMD+=(--terminal)
+    $ECHO && CMD+=(--echo)
+    [ -n "$UART_INPUT" ] && CMD+=(-u "$UART_INPUT")
+    if [ -n "$PROG" ]; then
+      [ -n "$PROG_ADDR" ] || die "--prog-addr required with --prog in pcode mode"
+      CMD+=(-- --load-binary "$PROG@$PROG_ADDR")
+    fi
+    CMD+=("${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}")
+    if $QUIET; then
+      "${CMD[@]}" 2>&1 | filter_output
+    else
+      exec "${CMD[@]}"
+    fi
+    ;;
+
+  *)
+    die "unknown mode: $MODE (expected native-s, binary, pcode)"
+    ;;
+esac
