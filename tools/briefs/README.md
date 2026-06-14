@@ -64,7 +64,8 @@ Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq
 | `dcemu-remove-internal-assembler.md` | dcemu | mike | ✅ |
 | `dcftn-fortran-hello-world.md` | dcftn | mike | ✅ shipped (Path A); `fortran` wrapper on PATH |
 | `dcftn-fti-m1-resume.md` | dcftn | mike | 🔵 in flight on `feat/m1-resume`; SNOBOL4 nested-call fix unblocks inline IDENT(SUBSTR(...)) |
-| `dcmls-migrate-toolchain.md` | dcmls | mike | 🟢 ready — scripts/justfile/docs still call deprecated `cor24-run --run/--assemble`; owns the prelude-snapshot gen (couples to dwmls re-baseline) |
+| `dcmls-migrate-toolchain.md` | dcmls | mike | 🆕 relayed to `dev` (`36bda67`); owns the prelude-snapshot gen (couples to dwmls re-baseline) |
+| `dcmls-fix-lazy-take-and-fullbig.md` | dcmls | mike | 🟢 ready — pre-existing prelude regression (lazy-take hang; fullbig halts after 2 instr), unrelated to the toolchain migration |
 | `dcpls-bootstrap-goldens.md` | dcpls | mike | ✅ shipped; `just test` is now a green CI gate |
 | `dcpls-bootstrap-plsw-toolchain.md` | dcpls | mike | ✅ |
 | `dcpls-dynamic-memory-architecture.md` | dcpls | mike | 🪦 superseded — see `sw-cor24-plsw/docs/shrink-lgo-size.md` (canonical multi-phase plan, dcpls-owned) |
