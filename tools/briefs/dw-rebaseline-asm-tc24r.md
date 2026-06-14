@@ -7,6 +7,30 @@ instance: **dwmls** / `web-sw-cor24-macrolisp`). Audit step below identifies the
 **Drafted by:** mike (coordinator)
 **Part of:** the cor24-rs retirement epic — see `retire-cor24-rs.md`.
 
+## DECISION (governs — supersedes any "default to B" wording below)
+
+**Approach A+ (re-baseline & commit, with a staleness gate), in two PRs.** This
+overrides the earlier "default to B." Why B is rejected *for this repo*: the
+standard-tier snapshot is generated **upstream by dcmls** (`sw-cor24-macrolisp`
+`justfile` / `snapshot-save.s`), so it is **not dwmls's artifact to produce in a
+`build.rs`**, and B would force a build-time emulator run to regenerate it.
+
+- **Pin to `sw-cor24-macrolisp` `dev`/`main` `1a2d777`** (the promoted state;
+  tree-identical to `86ce8e3`) — **not** the stale `f6459e4`. The local sibling
+  must be re-provisioned to this first (coordinator handles — see below).
+- **`lazy.l24` and `fullbig` are now VERIFICATION TARGETS, not exclusions** —
+  dcmls fixed them in `86ce8e3` (tail-recursive lazy-take; fullbig→8K EBR). The
+  earlier "skip them" note is obsolete.
+- **PR1 — script-only, no artifact change:** harden `build-all.sh` to fail-loud on
+  a missing/unpinned `tc24r`, **and fix the snapshot-path gap** dwmls found —
+  `build-all.sh` regenerates the *unused* `repl-standard.s` but not the
+  *consumed* `repl-snapshot.s` / `standard.snap`.
+- **PR2 — the resync:** regenerate the `.s` + `standard.snap` pinned to `1a2d777`,
+  functionally verify (protocol below), commit asm + snapshot + rebuilt `pages/`.
+- **Snapshot generation:** produce `standard.snap` by running dcmls's (now
+  migrated) `justfile` snapshot recipe against the pinned source, then commit the
+  output here. The *recipe* is dcmls's; dwmls *runs* it against the pin.
+
 ## Why this exists (verified diagnosis)
 
 > **Migration framing.** The committed `asm/*.s` are **old-toolchain (pre-split,
@@ -59,11 +83,13 @@ done
 Repos that only assemble in `build.rs` from `.c` at build time (no committed `.s`)
 are **not** in scope here — they regenerate every build already.
 
-## Approach B — asm as a build artifact (DEFAULT — do this)
+## Approach B — asm as a build artifact (CONSIDERED, REJECTED for this repo)
 
-This is the standard for the migration: **no committed generated artifacts.** An
-old-toolchain artifact can only linger if it's committed; remove that and the
-whole drift class disappears for good.
+Rejected per the DECISION above: the standard-tier `standard.snap` is generated
+upstream by dcmls, so B would (a) force a build-time emulator run to regenerate it
+and (b) put an artifact dwmls doesn't own into dwmls's `build.rs`. Kept here only
+as reference, and as a possible future option for repos that have **no** snapshot
+dependency.
 
 `asm/*.s` is currently a **compile-time input** (`src/config.rs` `include_str!`s
 it), so it cannot simply be deleted — the build must produce it first.
@@ -81,21 +107,32 @@ it), so it cannot simply be deleted — the build must produce it first.
 Trade-off: introduces a hard build-time dependency on `tc24r` + the source
 sibling. Acceptable here because the shared toolchain ships `tc24r` on PATH.
 
-## Approach A — re-baseline and keep committing (escape hatch only)
+## Approach A+ — re-baseline & commit, with a staleness gate (CHOSEN)
 
-Use **only** if approach B's build-time codegen is genuinely impractical for a
-repo (raise it with mike first). It still satisfies "stop using old-toolchain
-output" — the committed file becomes new-`tc24r` output — but it leaves a
-committed artifact that must be kept in sync, so it does not close the drift
-class. If a repo must keep plain `cargo build` working with **no** new build-time
-deps:
+Keeps plain `cargo build` dependency-free (it just reads committed `.s`), while a
+**staleness gate** removes the "silent drift" failure mode that justified B. Done
+as two PRs (see DECISION):
 
-1. Regenerate all `asm/repl-*.s` with the **pinned** `tc24r`.
-2. **Verify** (see protocol) — do not commit until green.
-3. Commit the new compact asm **and** the rebuilt `pages/` together, in a commit
-   that says "re-baseline asm onto sw-cor24-x-tinyc tc24r (behavior-verified)".
-4. Harden `build-all.sh` to **require** the pinned `tc24r` and fail (not warn) on
-   absence. (dwmls already added a warning — upgrade it to fail-loud.)
+**PR1 — `build-all.sh` hardening (script-only, no artifact change):**
+1. Fail-loud if the pinned `tc24r` is missing/unpinned — never a silent PATH
+   fallback. (dwmls already added a warning — upgrade it to a hard failure.)
+2. **Fix the snapshot-path gap:** regenerate the files the tiers actually consume
+   (`repl-snapshot.s` + `standard.snap` for the standard tier), not the unused
+   `repl-standard.s`.
+3. Add the **staleness gate**: a check (in `build-all.sh` and/or a test/CI) that
+   re-running the pinned `tc24r` reproduces the committed `.s` **byte-for-byte** —
+   fail on mismatch. This makes future drift impossible-to-be-silent.
+
+**PR2 — the asm + snapshot resync (the artifact change):**
+1. Regenerate all `asm/repl-*.s` with the **pinned** `tc24r` against
+   `sw-cor24-macrolisp` `1a2d777`.
+2. Regenerate `standard.snap` via dcmls's `justfile` snapshot recipe against the
+   same pin.
+3. **Verify** (protocol below) — do not commit until green, including `lazy.l24`
+   and `fullbig` as targets.
+4. Commit the new asm + snapshot + rebuilt `pages/` together, message:
+   "re-baseline asm+snapshot onto sw-cor24-x-tinyc tc24r @ macrolisp 1a2d777
+   (behavior-verified)".
 
 ## Validation protocol (required for either approach)
 
@@ -113,10 +150,14 @@ diff old.out new.out   # must be empty
 
 - Cover **all five tiers** (bare/minimal/standard/full/scheme) and the **demo
   corpus** in `src/demos.rs`, not just a smoke test.
-- **`standard` tier wrinkle:** it also ships `asm/repl-snapshot.s` + a
-  pre-compiled `snapshots/standard.snap` loaded at `0x080000`. The snapshot is
-  codegen/address-dependent — **regenerate and re-verify it** alongside the asm,
-  or the standard tier will load a mismatched heap image.
+- **Include `lazy.l24` and `fullbig`** as explicit pass/verify targets — dcmls
+  fixed them at `86ce8e3`, so they must now run correctly post-re-baseline
+  (lazy-take terminates; fullbig runs at 8K).
+- **`standard` tier wrinkle:** it ships `asm/repl-snapshot.s` + the pre-compiled
+  `snapshots/standard.snap` loaded at `0x080000` — **not** `repl-standard.s` (the
+  snapshot-path gap PR1 fixes). The snapshot is codegen/address-dependent, so
+  regenerate it via dcmls's recipe and re-verify, or the standard tier loads a
+  mismatched heap image.
 
 ## Out of scope
 
@@ -126,6 +167,7 @@ diff old.out new.out   # must be empty
 
 ## When done
 
-Push `pr/rebaseline-asm-tc24r`, notify mike. Mike relays via
-`dg-relay <agent> <repo> pr/rebaseline-asm-tc24r`. **Default to approach B.** Only
-fall back to A after raising the specific build-time blocker with mike.
+Two PRs (see DECISION): push `pr/rebaseline-build-harden` (PR1) then
+`pr/rebaseline-asm-tc24r` (PR2); notify mike to relay each via
+`dg-relay <agent> <repo> <pr-branch>`. **Approach A+ governs** — B is rejected for
+this repo.
