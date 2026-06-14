@@ -54,9 +54,13 @@ Audit: `grep -rn 'cor24_emulator::.*Assembler' work/*/github/sw-embed/*/{src,bui
 
 | Scope | Brief | Status |
 |---|---|---|
-| any `dc*` agent | `dc-migrate-toolchain.md` (existing) | ◻ in progress / per-repo |
+| any `dc*` agent | `dc-migrate-toolchain.md` (existing, generic) | ◻ in progress / per-repo |
+| `sw-cor24-macrolisp` (dcmls) | `dcmls-migrate-toolchain.md` | 🟢 ready — heavy `cor24-run` use; **owns prelude-snapshot gen** (see axis 3) |
 
-Audit: `grep -rn -- '--run\|--assemble' work/dc*/github/sw-embed/*/{scripts,docs}`
+`cor24-run` is now a logging deprecation shim → `cor24-run.legacy`; callers still
+work but break once the shim is removed. Audit:
+`grep -rn 'cor24-run' work/dc*/github/sw-embed/*/{scripts,docs,justfile}` and
+`work/log/cor24-run-usage.log`.
 
 ### Axis 3 — Generated artifacts (committed old-toolchain `asm/`)
 Committed `asm/*.s` were produced by the old `tml24c`-era compiler and diverge
@@ -69,6 +73,12 @@ committing generated asm at all** (approach B).
 | other `dw*` committing `asm/*.s` | per audit | `dw-rebaseline-asm-tc24r.md` | ◻ audit pending |
 
 Audit: `for d in work/dw*/github/sw-embed/*/; do git -C "$d" ls-files 'asm/*.s' | grep -q . && echo "$d"; done`
+
+**Snapshot ownership:** the standard-tier `snapshots/standard.snap` (shipped by
+dwmls) is **generated upstream by dcmls** (`sw-cor24-macrolisp` `justfile`, via
+`snapshot-save.s`). Re-baselining it belongs to `dcmls-migrate-toolchain.md`;
+dwmls consumes the result. Sequence dcmls's snapshot regen **before** dwmls's
+re-baseline so dwmls picks up a current `.snap`.
 
 ### Axis 4 — The monolith itself
 | Item | Status |
@@ -85,4 +95,8 @@ echo "Axis 2 — cor24-run --run/--assemble:"; grep -rln -- '--run\|--assemble' 
 echo "Axis 3 — committed asm:"; for d in dw*/github/sw-embed/*/; do git -C "$d" ls-files 'asm/*.s' 2>/dev/null | grep -q . && echo "$d"; done
 ```
 
-The epic is done when all three print nothing and axis 4 is closed.
+The epic is done when all three print nothing and axis 4 is closed — **except
+documented intentional residuals**: historical/post-mortem references that
+*correctly* attribute past behavior to `cor24-run` (e.g. `sw-cor24-macrolisp`
+`docs/fix-repl.md` and the `justfile` migration-rationale comment) are kept, since
+rewriting them would falsify history. Treat those as allowed, not regressions.
