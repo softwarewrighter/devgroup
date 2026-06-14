@@ -55,7 +55,7 @@ Audit: `grep -rn 'cor24_emulator::.*Assembler' work/*/github/sw-embed/*/{src,bui
 | Scope | Brief | Status |
 |---|---|---|
 | any `dc*` agent | `dc-migrate-toolchain.md` (existing, generic) | ◻ in progress / per-repo |
-| `sw-cor24-macrolisp` (dcmls) | `dcmls-migrate-toolchain.md` | 🆕 relayed to `dev` (`36bda67`); **owns prelude-snapshot gen** (see axis 3) |
+| `sw-cor24-macrolisp` (dcmls) | `dcmls-migrate-toolchain.md` | ✅ promoted to `main` (`1a2d777`); **owns prelude-snapshot gen** (see axis 3) |
 | **toolchain launcher `cor24-interpret`** (coordinator) | — needs brief | ◻ **`native-s` mode still calls `cor24-run --run`** (`work/bin/cor24-interpret:92`). Shared by every native-s wrapper (`lisp24`, forth, …); blocks retiring the `cor24-run` shim. Migrate → `cor24-asm` + `cor24-emu --lgo`. |
 | installed interpreter artifacts (`work/lib/<lang>/*.s`) | — | ◻ stale old-toolchain output (e.g. `work/lib/macrolisp/repl-standard.s`, 272 KB verbose) — rebuild + reinstall after each repo's re-baseline. |
 
