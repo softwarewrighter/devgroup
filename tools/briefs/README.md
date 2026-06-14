@@ -43,6 +43,13 @@ The first three landed and verified end-to-end. dwftn's web demo is the only rem
 |---|---|---|
 | `dc-migrate-toolchain.md` | any `dc*` agent | Migrate build scripts off `cor24-run --run`/`--assemble` and `$HOME/...` paths to PATH-resolved tools. Includes audit one-liner + full migration mapping table. |
 | `dw-rebuild-pages.md` | any `dw*` agent (esp. apl, forth, macrolisp, pcode, plsw, snobol4) | Rebuild `pages/` after the cor24-isa path-dep migration so gh-pages reflects current source. |
+| `dw-rebaseline-asm-tc24r.md` | any `dw*` agent committing generated `asm/*.s` | Re-baseline committed asm onto the blessed `sw-cor24-x-tinyc` `tc24r`; default to making asm a build artifact (stop committing it). First instance: dwmls. |
+
+## Epic trackers
+
+| Tracker | Owner | Purpose |
+|---|---|---|
+| `retire-cor24-rs.md` | mike (coordinator) | Index of the `cor24-rs` → split-toolchain migration: 4 axes (library API, binaries/scripts, generated artifacts, the monolith itself), per-repo status, audit one-liners, definition of done. |
 
 ## Agent-specific briefs
 
@@ -77,9 +84,15 @@ Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq
 | `dcxtc-rebase-codegen-baselines.md` | dcxtc | (agent-drafted) | 🟡 open |
 | `dcxtc-stdlib-heap-variant.md` | dcxtc | (agent-drafted) | 🟡 open |
 | `dcxtc-string-literal-concatenation.md` | dcxtc | dcpls | ✅ |
+| `dwapl-migrate-to-cor24-assembler.md` | dwapl | mike | 🟢 ready — `build.rs` imports `Assembler` from removed `cor24_emulator` API |
+| `dwfth-migrate-to-cor24-assembler.md` | dwfth | mike | 🟢 ready — build.rs + repl.rs + debugger.rs (heaviest; also uses `AssembledLine`) |
 | `dwftn-hello-world-demo.md` | dwftn | mike | 🔵 in flight (first attempt went out of scope; redoing per brief) |
+| `dwmls-*` (assembler split) | dwmls | coordinator | ✅ relayed to `dev` (folded into `pr/load-save-copy`); re-baseline next via `dw-rebaseline-asm-tc24r.md` |
+| `dwoca-migrate-to-cor24-assembler.md` | dwoca | mike | 🟢 ready — `build.rs` imports `Assembler` from removed `cor24_emulator` API |
+| `dwpas-migrate-to-cor24-assembler.md` | dwpas | mike | 🟢 ready — `build.rs` (2 sites) imports `Assembler` from removed `cor24_emulator` API |
+| `dwpvm-migrate-to-cor24-assembler.md` | dwpvm | mike | 🟢 ready — `build.rs` imports `Assembler` from removed `cor24_emulator` API |
 
-(Status as of 2026-05-09; mike updates this index when briefs land or new ones are added.)
+(Status as of 2026-06-13; mike updates this index when briefs land or new ones are added.)
 
 ### Recent shipped sagas without an associated brief
 
