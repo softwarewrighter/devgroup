@@ -90,7 +90,7 @@ Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq
 | `dcxtc-string-literal-concatenation.md` | dcxtc | dcpls | ✅ |
 | `dcxtc-fix-cond-macroexpand-hang.md` | dcxtc | mike | 🟢 ready — long-standing `tc24r` codegen hang on deep recursion (3-clause `cond` macroexpand); gates the macrolisp asm re-baseline |
 | `dwapl-migrate-to-cor24-assembler.md` | dwapl | mike | 🟢 ready — `build.rs` imports `Assembler` from removed `cor24_emulator` API |
-| `dwfth-migrate-to-cor24-assembler.md` | dwfth | mike | 🟢 ready — build.rs + repl.rs + debugger.rs (heaviest; also uses `AssembledLine`) |
+| `dwfth-migrate-to-cor24-assembler.md` | dwfth | mike | 🆕 relayed to `dev` (`cca37d1`) — build.rs + repl.rs + debugger.rs + `AssembledLine` |
 | `dwftn-hello-world-demo.md` | dwftn | mike | 🔵 in flight (first attempt went out of scope; redoing per brief) |
 | `dwmls-*` (assembler split) | dwmls | coordinator | ✅ relayed to `dev` (folded into `pr/load-save-copy`); re-baseline next via `dw-rebaseline-asm-tc24r.md` |
 | `dwoca-migrate-to-cor24-assembler.md` | dwoca | mike | 🟢 ready — `build.rs` imports `Assembler` from removed `cor24_emulator` API |

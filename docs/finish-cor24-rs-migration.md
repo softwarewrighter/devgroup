@@ -72,7 +72,7 @@ resolve the path-deps — surface to mike, don't work around it.
 a `wasm32-unknown-unknown` build, then rebuild `pages/` via the repo's script.
 Brief: `tools/briefs/<user>-migrate-to-cor24-assembler.md`. Slug: `migrate-to-cor24-assembler`.
 
-### P0.1 — dwfth · `web-sw-cor24-forth` *(heaviest — build-time AND runtime)*
+### P0.1 — dwfth · `web-sw-cor24-forth` — ✅ DONE (relayed `cca37d1`) *(heaviest — build-time AND runtime)*
 - Add `cor24-assembler` to **both** `[dependencies]` and `[build-dependencies]`.
 - Split the import in **three** files:
   - `build.rs:1` → `use cor24_assembler::Assembler;` + `use cor24_emulator::{EmulatorCore, StopReason};`
@@ -97,7 +97,7 @@ Brief: `tools/briefs/<user>-migrate-to-cor24-assembler.md`. Slug: `migrate-to-co
 - **Also has an Axis-2 script** (`scripts/run-pascal.sh`) — fold the P2 edit into
   the same PR or a follow-up (see P2.10).
 
-> **Done:** dwmls · `web-sw-cor24-macrolisp` — migrated (relayed + on `main`).
+> **Done:** dwmls · `web-sw-cor24-macrolisp` (on `main`); dwfth · `web-sw-cor24-forth` (relayed to `dev`, `cca37d1`).
 
 ## P1 — Migrate the shared launcher `cor24-interpret` (Axis 2, highest leverage)
 
@@ -204,7 +204,7 @@ archived/rehomed.
 
 | Priority | Linux user | Repo | Brief | Action |
 |---|---|---|---|---|
-| P0.1 | dwfth | web-sw-cor24-forth | `dwfth-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
+| ✅ P0.1 | dwfth | web-sw-cor24-forth | `dwfth-migrate-to-cor24-assembler.md` | **done** — relayed `cca37d1` |
 | P0.2 | dwapl | web-sw-cor24-apl | `dwapl-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
 | P0.3 | dwoca | web-sw-cor24-ocaml | `dwoca-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
 | P0.4 | dwpas | web-sw-cor24-pascal | `dwpas-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
