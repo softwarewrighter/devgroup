@@ -23,6 +23,7 @@ Deeper reading:
 - [Agent briefing](docs/agent-briefing.md) — what an agent reads on its first task
 - [`.lgo` format](docs/lgo-format.md) — COR24 load-image format spec
 - [Rust toolchain updates](docs/update-rust.md)
+- [Finishing the cor24-rs migration](docs/finish-cor24-rs-migration.md) — prioritized fleet-wide plan to retire the cor24-rs monolith
 - [Saga briefs index](tools/briefs/README.md) — what's in flight, what shipped
 
 ## License
