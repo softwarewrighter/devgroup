@@ -43,7 +43,8 @@ The first three landed and verified end-to-end. dwftn's web demo is the only rem
 |---|---|---|
 | `dc-migrate-toolchain.md` | any `dc*` agent | Migrate build scripts off `cor24-run --run`/`--assemble` and `$HOME/...` paths to PATH-resolved tools. Includes audit one-liner + full migration mapping table. |
 | `dw-rebuild-pages.md` | any `dw*` agent (esp. apl, forth, macrolisp, pcode, plsw, snobol4) | Rebuild `pages/` after the cor24-isa path-dep migration so gh-pages reflects current source. |
-| `dw-rebaseline-asm-tc24r.md` | any `dw*` agent committing generated `asm/*.s` | Re-baseline committed asm onto the blessed `sw-cor24-x-tinyc` `tc24r`; default to making asm a build artifact (stop committing it). First instance: dwmls. |
+| `dw-rebaseline-asm-tc24r.md` | any `dw*` agent committing generated `asm/*.s` | Re-baseline committed asm onto the blessed `sw-cor24-x-tinyc` `tc24r`; approach A+ (two PRs). **Blocked on `dcxtc-fix-cond-macroexpand-hang`.** First instance: dwmls. |
+| `toolchain-version-stamping.md` | tool-repo agents (dcemu/dcxas/dcxtc) | Stamp git short-SHA + build date into every toolchain binary's `--version` (and add `--version` to `tc24r`/`tc24r-pp`) so old/new builds are distinguishable on PATH. |
 
 ## Epic trackers
 
@@ -86,6 +87,7 @@ Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq
 | `dcxtc-rebase-codegen-baselines.md` | dcxtc | (agent-drafted) | 🟡 open |
 | `dcxtc-stdlib-heap-variant.md` | dcxtc | (agent-drafted) | 🟡 open |
 | `dcxtc-string-literal-concatenation.md` | dcxtc | dcpls | ✅ |
+| `dcxtc-fix-cond-macroexpand-hang.md` | dcxtc | mike | 🟢 ready — long-standing `tc24r` codegen hang on deep recursion (3-clause `cond` macroexpand); gates the macrolisp asm re-baseline |
 | `dwapl-migrate-to-cor24-assembler.md` | dwapl | mike | 🟢 ready — `build.rs` imports `Assembler` from removed `cor24_emulator` API |
 | `dwfth-migrate-to-cor24-assembler.md` | dwfth | mike | 🟢 ready — build.rs + repl.rs + debugger.rs (heaviest; also uses `AssembledLine`) |
 | `dwftn-hello-world-demo.md` | dwftn | mike | 🔵 in flight (first attempt went out of scope; redoing per brief) |
