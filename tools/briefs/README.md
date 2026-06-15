@@ -45,6 +45,7 @@ The first three landed and verified end-to-end. dwftn's web demo is the only rem
 | `dw-rebuild-pages.md` | any `dw*` agent (esp. apl, forth, macrolisp, pcode, plsw, snobol4) | Rebuild `pages/` after the cor24-isa path-dep migration so gh-pages reflects current source. |
 | `dw-rebaseline-asm-tc24r.md` | any `dw*` agent committing generated `asm/*.s` | Re-baseline committed asm onto the blessed `sw-cor24-x-tinyc` `tc24r`; approach A+ (two PRs). **Blocked on `dcxtc-fix-cond-macroexpand-hang`.** First instance: dwmls. |
 | `toolchain-version-stamping.md` | tool-repo agents (dcemu/dcxas/dcxtc) | Stamp git short-SHA + build date into every toolchain binary's `--version` (and add `--version` to `tc24r`/`tc24r-pp`) so old/new builds are distinguishable on PATH. |
+| `cor24-interpret-migrate-off-cor24-run.md` | mike (coordinator) | Migrate the shared `native-s` launcher (`work/bin/cor24-interpret`, behind `lisp24`/forth/…) off `cor24-run --run` → `cor24-asm` + `cor24-emu --lgo`. Final blocker to deleting the `cor24-run` shim. |
 
 ## Epic trackers
 
