@@ -95,7 +95,7 @@ Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq
 | `dwmls-*` (assembler split) | dwmls | coordinator | ✅ relayed to `dev` (folded into `pr/load-save-copy`); re-baseline next via `dw-rebaseline-asm-tc24r.md` |
 | `dwoca-migrate-to-cor24-assembler.md` | dwoca | mike | 🟢 ready — `build.rs` imports `Assembler` from removed `cor24_emulator` API |
 | `dwpas-migrate-to-cor24-assembler.md` | dwpas | mike | 🟢 ready — `build.rs` (2 sites) imports `Assembler` from removed `cor24_emulator` API |
-| `dwpvm-migrate-to-cor24-assembler.md` | dwpvm | mike | 🟢 ready — `build.rs` imports `Assembler` from removed `cor24_emulator` API |
+| `dwpvm-migrate-to-cor24-assembler.md` | dwpvm | mike | 🆕 relayed to `dev` (`097f026`) — done with axis-2 `run-pascal.sh` in one PR |
 
 (Status as of 2026-06-13; mike updates this index when briefs land or new ones are added.)
 

@@ -91,13 +91,13 @@ Brief: `tools/briefs/<user>-migrate-to-cor24-assembler.md`. Slug: `migrate-to-co
 - Add `cor24-assembler` to `[build-dependencies]`.
 - `build.rs:10` **and** `build.rs:73`: both `cor24_emulator::Assembler::new()` → `cor24_assembler::Assembler::new()`.
 
-### P0.5 — dwpvm · `web-sw-cor24-pcode`
+### P0.5 — dwpvm · `web-sw-cor24-pcode` — ✅ DONE (relayed `097f026`, both axes)
 - Add `cor24-assembler` to `[build-dependencies]`.
 - `build.rs:10`: one-token change.
 - **Also has an Axis-2 script** (`scripts/run-pascal.sh`) — fold the P2 edit into
   the same PR or a follow-up (see P2.10).
 
-> **Done:** dwmls · `web-sw-cor24-macrolisp` (on `main`); dwfth · `web-sw-cor24-forth` (relayed to `dev`, `cca37d1`).
+> **Done:** dwmls · `web-sw-cor24-macrolisp` (on `main`); dwfth · `web-sw-cor24-forth` (`cca37d1`); dwpvm · `web-sw-cor24-pcode` (`097f026`, both axes).
 
 ## P1 — Migrate the shared launcher `cor24-interpret` (Axis 2, highest leverage)
 
@@ -140,7 +140,7 @@ Ordered by amount of active flag usage (`--run`/`--assemble` counts from audit):
 | P2.7 | dcxtc | `sw-cor24-x-tinyc` | 0 | 0 | `scripts/{run-subset-tests,run-chibicc-test}.sh` (rename/refs) |
 | P2.8 | dcfth | `sw-cor24-forth` | 0 | 0 | `scripts/build.sh` (availability check / refs) |
 | P2.9 | dcyed | `sw-cor24-yocto-ed` | 0 | 0 | `justfile` (rename/refs) |
-| P2.10 | dwpvm | `web-sw-cor24-pcode` | 1 | 2 | `scripts/run-pascal.sh` (pair with P0.5) |
+| ✅ P2.10 | dwpvm | `web-sw-cor24-pcode` | 1 | 2 | **done** with P0.5 (`097f026`) — `scripts/run-pascal.sh` migrated |
 
 > **Done:** dcmls · `sw-cor24-macrolisp` — migrated (on `main`). Its one remaining
 > `cor24-run` line is an **intentional** `justfile` migration-rationale comment.
@@ -208,7 +208,7 @@ archived/rehomed.
 | P0.2 | dwapl | web-sw-cor24-apl | `dwapl-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
 | P0.3 | dwoca | web-sw-cor24-ocaml | `dwoca-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
 | P0.4 | dwpas | web-sw-cor24-pascal | `dwpas-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
-| P0.5 | dwpvm | web-sw-cor24-pcode | `dwpvm-migrate-to-cor24-assembler.md` | feat→pr (+ P2.10) |
+| ✅ P0.5 | dwpvm | web-sw-cor24-pcode | `dwpvm-migrate-to-cor24-assembler.md` | **done** — relayed `097f026` (both axes) |
 | P1 | mike | `work/bin/cor24-interpret` | `cor24-interpret-migrate-off-cor24-run.md` | coordinator edit |
 | P2.1 | dcasm | sw-cor24-assembler | `dc-migrate-toolchain.md` | feat→pr `migrate-toolchain` |
 | P2.2 | dcoca | sw-cor24-ocaml | `dc-migrate-toolchain.md` | feat→pr `migrate-toolchain` |
