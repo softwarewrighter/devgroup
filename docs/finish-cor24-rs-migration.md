@@ -87,7 +87,7 @@ Brief: `tools/briefs/<user>-migrate-to-cor24-assembler.md`. Slug: `migrate-to-co
 - Add `cor24-assembler` to `[build-dependencies]`.
 - `build.rs:11`: same one-token change.
 
-### P0.4 — dwpas · `web-sw-cor24-pascal`
+### P0.4 — dwpas · `web-sw-cor24-pascal` — ✅ DONE (relayed `7d7837d`)
 - Add `cor24-assembler` to `[build-dependencies]`.
 - `build.rs:10` **and** `build.rs:73`: both `cor24_emulator::Assembler::new()` → `cor24_assembler::Assembler::new()`.
 
@@ -97,7 +97,7 @@ Brief: `tools/briefs/<user>-migrate-to-cor24-assembler.md`. Slug: `migrate-to-co
 - **Also has an Axis-2 script** (`scripts/run-pascal.sh`) — fold the P2 edit into
   the same PR or a follow-up (see P2.10).
 
-> **Done:** dwmls · `web-sw-cor24-macrolisp` (on `main`); dwfth · `web-sw-cor24-forth` (`cca37d1`); dwpvm · `web-sw-cor24-pcode` (`097f026`, both axes).
+> **Done:** dwmls · `web-sw-cor24-macrolisp` (on `main`); dwfth (`cca37d1`); dwpvm (`097f026`, both axes); dwpas (`7d7837d`). **Remaining P0: dwapl, dwoca.**
 
 ## P1 — Migrate the shared launcher `cor24-interpret` (Axis 2, highest leverage)
 
@@ -207,7 +207,7 @@ archived/rehomed.
 | ✅ P0.1 | dwfth | web-sw-cor24-forth | `dwfth-migrate-to-cor24-assembler.md` | **done** — relayed `cca37d1` |
 | P0.2 | dwapl | web-sw-cor24-apl | `dwapl-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
 | P0.3 | dwoca | web-sw-cor24-ocaml | `dwoca-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
-| P0.4 | dwpas | web-sw-cor24-pascal | `dwpas-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
+| ✅ P0.4 | dwpas | web-sw-cor24-pascal | `dwpas-migrate-to-cor24-assembler.md` | **done** — relayed `7d7837d` |
 | ✅ P0.5 | dwpvm | web-sw-cor24-pcode | `dwpvm-migrate-to-cor24-assembler.md` | **done** — relayed `097f026` (both axes) |
 | P1 | mike | `work/bin/cor24-interpret` | `cor24-interpret-migrate-off-cor24-run.md` | coordinator edit |
 | P2.1 | dcasm | sw-cor24-assembler | `dc-migrate-toolchain.md` | feat→pr `migrate-toolchain` |
