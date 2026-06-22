@@ -79,7 +79,7 @@ Brief: `tools/briefs/<user>-migrate-to-cor24-assembler.md`. Slug: `migrate-to-co
   - `src/repl.rs:13` → `use cor24_assembler::Assembler;` + `use cor24_emulator::EmulatorCore;`
   - `src/debugger.rs:5` → `use cor24_assembler::{AssembledLine, Assembler};` + `use cor24_emulator::EmulatorCore;`
 
-### P0.2 — dwapl · `web-sw-cor24-apl`
+### P0.2 — dwapl · `web-sw-cor24-apl` — ✅ DONE (relayed `3f2664f`)
 - Add `cor24-assembler` to `[build-dependencies]`.
 - `build.rs:7`: `cor24_emulator::Assembler::new()` → `cor24_assembler::Assembler::new()`.
 
@@ -97,7 +97,7 @@ Brief: `tools/briefs/<user>-migrate-to-cor24-assembler.md`. Slug: `migrate-to-co
 - **Also has an Axis-2 script** (`scripts/run-pascal.sh`) — fold the P2 edit into
   the same PR or a follow-up (see P2.10).
 
-> **Done:** dwmls · `web-sw-cor24-macrolisp` (on `main`); dwfth (`cca37d1`); dwpvm (`097f026`, both axes); dwpas (`7d7837d`). **Remaining P0: dwapl, dwoca.**
+> **Done:** dwmls (on `main`); dwfth (`cca37d1`); dwpvm (`097f026`, both axes); dwpas (`7d7837d`); dwapl (`3f2664f`). **Remaining P0: dwoca only.**
 
 ## P1 — Migrate the shared launcher `cor24-interpret` (Axis 2, highest leverage)
 
@@ -205,7 +205,7 @@ archived/rehomed.
 | Priority | Linux user | Repo | Brief | Action |
 |---|---|---|---|---|
 | ✅ P0.1 | dwfth | web-sw-cor24-forth | `dwfth-migrate-to-cor24-assembler.md` | **done** — relayed `cca37d1` |
-| P0.2 | dwapl | web-sw-cor24-apl | `dwapl-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
+| ✅ P0.2 | dwapl | web-sw-cor24-apl | `dwapl-migrate-to-cor24-assembler.md` | **done** — relayed `3f2664f` |
 | P0.3 | dwoca | web-sw-cor24-ocaml | `dwoca-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
 | ✅ P0.4 | dwpas | web-sw-cor24-pascal | `dwpas-migrate-to-cor24-assembler.md` | **done** — relayed `7d7837d` |
 | ✅ P0.5 | dwpvm | web-sw-cor24-pcode | `dwpvm-migrate-to-cor24-assembler.md` | **done** — relayed `097f026` (both axes) |
