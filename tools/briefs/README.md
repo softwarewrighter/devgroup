@@ -93,7 +93,8 @@ Status legend: 🟢 ready to start (no prereqs) · 🟡 gated (waiting on prereq
 | `dwfth-migrate-to-cor24-assembler.md` | dwfth | mike | 🆕 relayed to `dev` (`cca37d1`) — build.rs + repl.rs + debugger.rs + `AssembledLine` |
 | `dwftn-hello-world-demo.md` | dwftn | mike | 🔵 in flight (first attempt went out of scope; redoing per brief) |
 | `dwmls-*` (assembler split) | dwmls | coordinator | ✅ relayed to `dev` (folded into `pr/load-save-copy`); re-baseline next via `dw-rebaseline-asm-tc24r.md` |
-| `dwoca-migrate-to-cor24-assembler.md` | dwoca | mike | 🟢 ready — `build.rs` imports `Assembler` from removed `cor24_emulator` API |
+| `dwoca-migrate-to-cor24-assembler.md` | dwoca | mike | 🆕 relayed to `dev` (`8d41860`) — **P0 complete** (all 6 dw* migrated) |
+| `dcapl-fix-build-sh-hardcoded-path.md` | dcapl (+ dcscr) | mike | 🟢 ready — `build.sh` hardcodes a macOS `/Users/...` include path; breaks clean-Linux sibling builds (flagged by dwapl) |
 | `dwpas-migrate-to-cor24-assembler.md` | dwpas | mike | 🆕 relayed to `dev` (`7d7837d`) — `build.rs` 2 sites migrated |
 | `dwpvm-migrate-to-cor24-assembler.md` | dwpvm | mike | 🆕 relayed to `dev` (`097f026`) — done with axis-2 `run-pascal.sh` in one PR |
 

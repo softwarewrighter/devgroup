@@ -68,6 +68,13 @@ errors, labels }`) — **no call-site logic changes.**
 `cor24-emu`, `tc24r` are already on PATH. Without the siblings the build can't
 resolve the path-deps — surface to mike, don't work around it.
 
+> **Provisioning hazard (build-script portability):** some siblings whose build is
+> *generated* (e.g. `sw-cor24-apl` produces `build/apl.s` via `build.sh`) carry
+> **hardcoded macOS `/Users/...` paths** that break on a clean Linux checkout —
+> `sw-cor24-apl/build.sh` and `sw-cor24-script/scripts/build.sh` confirmed. Tracked
+> in `tools/briefs/dcapl-fix-build-sh-hardcoded-path.md` (dcapl/dcscr). Separate
+> from cor24-rs, but it blocks clean provisioning of the apl-style siblings.
+
 **Per-repo verification (all five):** `cargo check`, `cargo clippy -- -D warnings`,
 a `wasm32-unknown-unknown` build, then rebuild `pages/` via the repo's script.
 Brief: `tools/briefs/<user>-migrate-to-cor24-assembler.md`. Slug: `migrate-to-cor24-assembler`.
@@ -83,7 +90,7 @@ Brief: `tools/briefs/<user>-migrate-to-cor24-assembler.md`. Slug: `migrate-to-co
 - Add `cor24-assembler` to `[build-dependencies]`.
 - `build.rs:7`: `cor24_emulator::Assembler::new()` → `cor24_assembler::Assembler::new()`.
 
-### P0.3 — dwoca · `web-sw-cor24-ocaml`
+### P0.3 — dwoca · `web-sw-cor24-ocaml` — ✅ DONE (relayed `8d41860`)
 - Add `cor24-assembler` to `[build-dependencies]`.
 - `build.rs:11`: same one-token change.
 
@@ -97,7 +104,7 @@ Brief: `tools/briefs/<user>-migrate-to-cor24-assembler.md`. Slug: `migrate-to-co
 - **Also has an Axis-2 script** (`scripts/run-pascal.sh`) — fold the P2 edit into
   the same PR or a follow-up (see P2.10).
 
-> **Done:** dwmls (on `main`); dwfth (`cca37d1`); dwpvm (`097f026`, both axes); dwpas (`7d7837d`); dwapl (`3f2664f`). **Remaining P0: dwoca only.**
+> **✅ P0 COMPLETE:** dwmls (on `main`); dwfth (`cca37d1`); dwpvm (`097f026`, both axes); dwpas (`7d7837d`); dwapl (`3f2664f`); dwoca (`8d41860`). All six `dw*` repos are off `cor24_emulator::Assembler`.
 
 ## P1 — Migrate the shared launcher `cor24-interpret` (Axis 2, highest leverage)
 
@@ -206,7 +213,7 @@ archived/rehomed.
 |---|---|---|---|---|
 | ✅ P0.1 | dwfth | web-sw-cor24-forth | `dwfth-migrate-to-cor24-assembler.md` | **done** — relayed `cca37d1` |
 | ✅ P0.2 | dwapl | web-sw-cor24-apl | `dwapl-migrate-to-cor24-assembler.md` | **done** — relayed `3f2664f` |
-| P0.3 | dwoca | web-sw-cor24-ocaml | `dwoca-migrate-to-cor24-assembler.md` | feat→pr `migrate-to-cor24-assembler` |
+| ✅ P0.3 | dwoca | web-sw-cor24-ocaml | `dwoca-migrate-to-cor24-assembler.md` | **done** — relayed `8d41860` |
 | ✅ P0.4 | dwpas | web-sw-cor24-pascal | `dwpas-migrate-to-cor24-assembler.md` | **done** — relayed `7d7837d` |
 | ✅ P0.5 | dwpvm | web-sw-cor24-pcode | `dwpvm-migrate-to-cor24-assembler.md` | **done** — relayed `097f026` (both axes) |
 | P1 | mike | `work/bin/cor24-interpret` | `cor24-interpret-migrate-off-cor24-run.md` | coordinator edit |
