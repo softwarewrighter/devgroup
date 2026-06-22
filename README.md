@@ -24,6 +24,7 @@ Deeper reading:
 - [`.lgo` format](docs/lgo-format.md) — COR24 load-image format spec
 - [Rust toolchain updates](docs/update-rust.md)
 - [Finishing the cor24-rs migration](docs/finish-cor24-rs-migration.md) — prioritized fleet-wide plan to retire the cor24-rs monolith
+- [Clean-Linux portability](docs/clean-linux-portability.md) — hardcoded-macOS-path audit & fix plan
 - [Saga briefs index](tools/briefs/README.md) — what's in flight, what shipped
 
 ## License
