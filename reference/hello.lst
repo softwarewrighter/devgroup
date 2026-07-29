@@ -1,0 +1,48 @@
+_main:
+000000 80               push    fp
+000001 7f               push    r2
+000002 7e               push    r1
+000003 65               mov     fp,sp
+
+                        ; line 5, file "hello.c"
+000004 29 00 00 00      la      r0,__iob
+000008 09 06            add     r0,6
+00000a 7d               push    r0
+00000b 29 2f 00 00      la      r0,L18
+00000f 7d               push    r0
+000010 29 00 00 00      la      r0,_fputs
+000014 25               jal     r1,(r0)
+000015 0c 06            add     sp,6
+
+                        ; line 5, file "hello.c"
+000017 29 00 00 00      la      r0,__iob
+00001b 09 06            add     r0,6
+00001d 7d               push    r0
+00001e 44 0a            lc      r0,10
+000020 7d               push    r0
+000021 29 00 00 00      la      r0,_fputc
+000025 25               jal     r1,(r0)
+000026 0c 06            add     sp,6
+
+                        ; line 7, file "hello.c"
+000028 44 00            lc      r0,0
+00002a 69               mov     sp,fp
+00002b 7a               pop     r1
+00002c 7b               pop     r2
+00002d 7c               pop     fp
+00002e 27               jmp     (r1)
+
+L18:
+00002f 68
+000030 65
+000031 6c
+000032 6c
+000033 6f
+000034 20
+000035 77
+000036 6f
+000037 72
+000038 6c
+000039 64
+00003a 00
+00003b

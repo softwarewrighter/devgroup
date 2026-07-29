@@ -1,0 +1,24 @@
+_main:
+000000 80               push    fp
+000001 7f               push    r2
+000002 7e               push    r1
+000003 65               mov     fp,sp
+
+                        ; line 6, file "blinky.c"
+000004 2b 00 00 ff      la      r2,-65536
+
+L13:
+                        ; line 9, file "blinky.c"
+000008 2e 00            lb      r0,(r2)
+00000a 82 00            sb      r0,(r2)
+00000c 13 f8            bra     L13
+
+                        ; line 12, file "blinky.c", warning: statement not reached
+                        ; line 12, file "blinky.c"
+00000e 44 00            lc      r0,0
+000010 69               mov     sp,fp
+000011 7a               pop     r1
+000012 7b               pop     r2
+000013 7c               pop     fp
+000014 27               jmp     (r1)
+000015

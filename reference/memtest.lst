@@ -1,0 +1,466 @@
+_memTestDataBus:
+000000 80               push    fp
+000001 7f               push    r2
+000002 7e               push    r1
+000003 65               mov     fp,sp
+000004 0c ff            add     sp,-1
+
+                        ; line 52, file "memtest.c"
+000006 44 01            lc      r0,1
+000008 83 ff            sb      r0,-1(fp)
+
+L22:
+                        ; line 52, file "memtest.c"
+00000a 3b ff            lbu     r0,-1(fp)
+00000c ce               clu     z,r0
+00000d 14 18            brf     L21
+
+                        ; line 57, file "memtest.c"
+00000f 4d 09            lw      r0,9(fp)
+000011 3f ff            lbu     r1,-1(fp)
+000013 84 00            sb      r1,(r0)
+
+                        ; line 62, file "memtest.c"
+000015 4d 09            lw      r0,9(fp)
+000017 38 00            lbu     r0,(r0)
+000019 3f ff            lbu     r1,-1(fp)
+00001b 16               ceq     r0,r1
+00001c 15 02            brt     L23
+
+                        ; line 64, file "memtest.c"
+00001e 3b ff            lbu     r0,-1(fp)
+000020 13 07            bra     L19
+
+L23:
+                        ; line 66, file "memtest.c"
+000022 3b ff            lbu     r0,-1(fp)
+000024 00               add     r0,r0
+000025 83 ff            sb      r0,-1(fp)
+000027 13 df            bra     L22
+
+L21:
+                        ; line 68, file "memtest.c"
+000029 44 00            lc      r0,0
+
+L19:
+00002b 69               mov     sp,fp
+00002c 7a               pop     r1
+00002d 7b               pop     r2
+00002e 7c               pop     fp
+00002f 27               jmp     (r1)
+
+_memTestAddressBus:
+000030 80               push    fp
+000031 7f               push    r2
+000032 7e               push    r1
+000033 65               mov     fp,sp
+000034 0c f5            add     sp,-11
+
+                        ; line 103, file "memtest.c"
+000036 29 ff ff 0f      la      r0,1048575
+00003a a6 fd            sw      r0,-3(fp)
+
+                        ; line 107, file "memtest.c"
+00003c 47 aa            lcu     r0,170
+00003e 83 f6            sb      r0,-10(fp)
+
+                        ; line 108, file "memtest.c"
+000040 44 55            lc      r0,85
+000042 83 f5            sb      r0,-11(fp)
+
+                        ; line 113, file "memtest.c"
+000044 44 01            lc      r0,1
+000046 a6 fa            sw      r0,-6(fp)
+
+L27:
+                        ; line 113, file "memtest.c"
+000048 4d fa            lw      r0,-6(fp)
+00004a 51 fd            lw      r1,-3(fp)
+00004c 0d               and     r0,r1
+00004d ce               clu     z,r0
+00004e 14 0e            brf     L26
+
+                        ; line 115, file "memtest.c"
+000050 4d 09            lw      r0,9(fp)
+000052 51 fa            lw      r1,-6(fp)
+000054 01               add     r0,r1
+000055 3f f6            lbu     r1,-10(fp)
+000057 84 00            sb      r1,(r0)
+
+                        ; line 116, file "memtest.c"
+000059 4d fa            lw      r0,-6(fp)
+00005b 00               add     r0,r0
+00005c a6 fa            sw      r0,-6(fp)
+00005e 13 e6            bra     L27
+
+L26:
+                        ; line 121, file "memtest.c"
+000060 44 00            lc      r0,0
+000062 a6 f7            sw      r0,-9(fp)
+
+                        ; line 122, file "memtest.c"
+000064 4d 09            lw      r0,9(fp)
+000066 51 f7            lw      r1,-9(fp)
+000068 01               add     r0,r1
+000069 3f f5            lbu     r1,-11(fp)
+00006b 84 00            sb      r1,(r0)
+
+                        ; line 124, file "memtest.c"
+00006d 44 01            lc      r0,1
+00006f a6 fa            sw      r0,-6(fp)
+
+L30:
+                        ; line 124, file "memtest.c"
+000071 4d fa            lw      r0,-6(fp)
+000073 51 fd            lw      r1,-3(fp)
+000075 0d               and     r0,r1
+000076 ce               clu     z,r0
+000077 14 18            brf     L29
+
+                        ; line 126, file "memtest.c"
+000079 4d 09            lw      r0,9(fp)
+00007b 51 fa            lw      r1,-6(fp)
+00007d 01               add     r0,r1
+00007e 38 00            lbu     r0,(r0)
+000080 3f f6            lbu     r1,-10(fp)
+000082 16               ceq     r0,r1
+000083 15 05            brt     L31
+
+                        ; line 128, file "memtest.c"
+000085 4d 09            lw      r0,9(fp)
+000087 51 fa            lw      r1,-6(fp)
+000089 01               add     r0,r1
+00008a 13 72            bra     L24
+
+L31:
+                        ; line 130, file "memtest.c"
+00008c 4d fa            lw      r0,-6(fp)
+00008e 00               add     r0,r0
+00008f a6 fa            sw      r0,-6(fp)
+000091 13 dc            bra     L30
+
+L29:
+                        ; line 132, file "memtest.c"
+000093 4d 09            lw      r0,9(fp)
+000095 51 f7            lw      r1,-9(fp)
+000097 01               add     r0,r1
+000098 3f f6            lbu     r1,-10(fp)
+00009a 84 00            sb      r1,(r0)
+
+                        ; line 137, file "memtest.c"
+00009c 44 01            lc      r0,1
+00009e a6 f7            sw      r0,-9(fp)
+
+L34:
+                        ; line 137, file "memtest.c"
+0000a0 4d f7            lw      r0,-9(fp)
+0000a2 51 fd            lw      r1,-3(fp)
+0000a4 0d               and     r0,r1
+0000a5 ce               clu     z,r0
+0000a6 14 54            brf     L33
+
+                        ; line 139, file "memtest.c"
+0000a8 4d 09            lw      r0,9(fp)
+0000aa 51 f7            lw      r1,-9(fp)
+0000ac 01               add     r0,r1
+0000ad 3f f5            lbu     r1,-11(fp)
+0000af 84 00            sb      r1,(r0)
+
+                        ; line 141, file "memtest.c"
+0000b1 4d 09            lw      r0,9(fp)
+0000b3 38 00            lbu     r0,(r0)
+0000b5 3f f6            lbu     r1,-10(fp)
+0000b7 16               ceq     r0,r1
+0000b8 15 05            brt     L35
+
+                        ; line 143, file "memtest.c"
+0000ba 4d 09            lw      r0,9(fp)
+0000bc 51 f7            lw      r1,-9(fp)
+0000be 01               add     r0,r1
+0000bf 13 3d            bra     L24
+
+L35:
+                        ; line 146, file "memtest.c"
+0000c1 44 01            lc      r0,1
+0000c3 a6 fa            sw      r0,-6(fp)
+
+L38:
+                        ; line 146, file "memtest.c"
+0000c5 4d fa            lw      r0,-6(fp)
+0000c7 51 fd            lw      r1,-3(fp)
+0000c9 0d               and     r0,r1
+0000ca ce               clu     z,r0
+0000cb 14 1f            brf     L37
+
+                        ; line 148, file "memtest.c"
+0000cd 4d 09            lw      r0,9(fp)
+0000cf 51 fa            lw      r1,-6(fp)
+0000d1 01               add     r0,r1
+0000d2 38 00            lbu     r0,(r0)
+0000d4 3f f6            lbu     r1,-10(fp)
+0000d6 16               ceq     r0,r1
+0000d7 15 0c            brt     L39
+0000d9 4d fa            lw      r0,-6(fp)
+0000db 51 f7            lw      r1,-9(fp)
+0000dd 16               ceq     r0,r1
+0000de 15 05            brt     L39
+
+                        ; line 150, file "memtest.c"
+0000e0 4d 09            lw      r0,9(fp)
+0000e2 51 f7            lw      r1,-9(fp)
+0000e4 01               add     r0,r1
+0000e5 13 17            bra     L24
+
+L39:
+                        ; line 152, file "memtest.c"
+0000e7 4d fa            lw      r0,-6(fp)
+0000e9 00               add     r0,r0
+0000ea a6 fa            sw      r0,-6(fp)
+0000ec 13 d5            bra     L38
+
+L37:
+                        ; line 154, file "memtest.c"
+0000ee 4d 09            lw      r0,9(fp)
+0000f0 51 f7            lw      r1,-9(fp)
+0000f2 01               add     r0,r1
+0000f3 3f f6            lbu     r1,-10(fp)
+0000f5 84 00            sb      r1,(r0)
+
+                        ; line 155, file "memtest.c"
+0000f7 4d f7            lw      r0,-9(fp)
+0000f9 00               add     r0,r0
+0000fa a6 f7            sw      r0,-9(fp)
+0000fc 13 a0            bra     L34
+
+L33:
+                        ; line 157, file "memtest.c"
+0000fe 44 00            lc      r0,0
+
+L24:
+000100 69               mov     sp,fp
+000101 7a               pop     r1
+000102 7b               pop     r2
+000103 7c               pop     fp
+000104 27               jmp     (r1)
+
+_memTestDevice:
+000105 80               push    fp
+000106 7f               push    r2
+000107 7e               push    r1
+000108 65               mov     fp,sp
+000109 0c f8            add     sp,-8
+
+                        ; line 189, file "memtest.c"
+00010b 4d 0c            lw      r0,12(fp)
+00010d a6 fa            sw      r0,-6(fp)
+
+                        ; line 197, file "memtest.c"
+00010f 44 01            lc      r0,1
+000111 83 f9            sb      r0,-7(fp)
+000113 44 00            lc      r0,0
+000115 a6 fd            sw      r0,-3(fp)
+
+L43:
+                        ; line 197, file "memtest.c"
+000117 4d fd            lw      r0,-3(fp)
+000119 51 fa            lw      r1,-6(fp)
+00011b 1f               clu     r0,r1
+00011c 14 15            brf     L42
+
+                        ; line 199, file "memtest.c"
+00011e 4d 09            lw      r0,9(fp)
+000120 51 fd            lw      r1,-3(fp)
+000122 01               add     r0,r1
+000123 3f f9            lbu     r1,-7(fp)
+000125 84 00            sb      r1,(r0)
+
+                        ; line 200, file "memtest.c"
+000127 3b f9            lbu     r0,-7(fp)
+000129 09 01            add     r0,1
+00012b 83 f9            sb      r0,-7(fp)
+00012d 4d fd            lw      r0,-3(fp)
+00012f 09 01            add     r0,1
+000131 a6 fd            sw      r0,-3(fp)
+000133 13 e0            bra     L43
+
+L42:
+                        ; line 205, file "memtest.c"
+000135 44 01            lc      r0,1
+000137 83 f9            sb      r0,-7(fp)
+000139 44 00            lc      r0,0
+00013b a6 fd            sw      r0,-3(fp)
+
+L46:
+                        ; line 205, file "memtest.c"
+00013d 4d fd            lw      r0,-3(fp)
+00013f 51 fa            lw      r1,-6(fp)
+000141 1f               clu     r0,r1
+000142 14 2f            brf     L45
+
+                        ; line 207, file "memtest.c"
+000144 4d 09            lw      r0,9(fp)
+000146 51 fd            lw      r1,-3(fp)
+000148 01               add     r0,r1
+000149 38 00            lbu     r0,(r0)
+00014b 3f f9            lbu     r1,-7(fp)
+00014d 16               ceq     r0,r1
+00014e 15 05            brt     L47
+
+                        ; line 209, file "memtest.c"
+000150 4d 09            lw      r0,9(fp)
+000152 51 fd            lw      r1,-3(fp)
+000154 01               add     r0,r1
+000155 13 55            bra     L40
+
+L47:
+                        ; line 212, file "memtest.c"
+000157 3b f9            lbu     r0,-7(fp)
+000159 45 ff            lc      r1,-1
+00015b ba               xor     r1,r0
+00015c 86 f8            sb      r1,-8(fp)
+
+                        ; line 213, file "memtest.c"
+00015e 4d 09            lw      r0,9(fp)
+000160 51 fd            lw      r1,-3(fp)
+000162 01               add     r0,r1
+000163 3f f8            lbu     r1,-8(fp)
+000165 84 00            sb      r1,(r0)
+
+                        ; line 214, file "memtest.c"
+000167 3b f9            lbu     r0,-7(fp)
+000169 09 01            add     r0,1
+00016b 83 f9            sb      r0,-7(fp)
+00016d 4d fd            lw      r0,-3(fp)
+00016f 09 01            add     r0,1
+000171 a6 fd            sw      r0,-3(fp)
+000173 13 c6            bra     L46
+
+L45:
+                        ; line 219, file "memtest.c"
+000175 44 01            lc      r0,1
+000177 83 f9            sb      r0,-7(fp)
+000179 44 00            lc      r0,0
+00017b a6 fd            sw      r0,-3(fp)
+
+L50:
+                        ; line 219, file "memtest.c"
+00017d 4d fd            lw      r0,-3(fp)
+00017f 51 fa            lw      r1,-6(fp)
+000181 1f               clu     r0,r1
+000182 14 26            brf     L49
+
+                        ; line 221, file "memtest.c"
+000184 3b f9            lbu     r0,-7(fp)
+000186 45 ff            lc      r1,-1
+000188 ba               xor     r1,r0
+000189 86 f8            sb      r1,-8(fp)
+
+                        ; line 222, file "memtest.c"
+00018b 4d 09            lw      r0,9(fp)
+00018d 51 fd            lw      r1,-3(fp)
+00018f 01               add     r0,r1
+000190 38 00            lbu     r0,(r0)
+000192 3f f8            lbu     r1,-8(fp)
+000194 16               ceq     r0,r1
+000195 15 05            brt     L51
+
+                        ; line 224, file "memtest.c"
+000197 4d 09            lw      r0,9(fp)
+000199 51 fd            lw      r1,-3(fp)
+00019b 01               add     r0,r1
+00019c 13 0e            bra     L40
+
+L51:
+                        ; line 226, file "memtest.c"
+00019e 3b f9            lbu     r0,-7(fp)
+0001a0 09 01            add     r0,1
+0001a2 83 f9            sb      r0,-7(fp)
+0001a4 4d fd            lw      r0,-3(fp)
+0001a6 09 01            add     r0,1
+0001a8 a6 fd            sw      r0,-3(fp)
+0001aa 13 cf            bra     L50
+
+L49:
+                        ; line 228, file "memtest.c"
+0001ac 44 00            lc      r0,0
+
+L40:
+0001ae 69               mov     sp,fp
+0001af 7a               pop     r1
+0001b0 7b               pop     r2
+0001b1 7c               pop     fp
+0001b2 27               jmp     (r1)
+
+_main:
+0001b3 80               push    fp
+0001b4 7f               push    r2
+0001b5 7e               push    r1
+0001b6 65               mov     fp,sp
+
+L54:
+                        ; line 240, file "memtest.c"
+0001b7 44 00            lc      r0,0
+0001b9 7d               push    r0
+0001ba 29 00 00 00      la      r0,_memTestDataBus
+0001be 25               jal     r1,(r0)
+0001bf 0c 03            add     sp,3
+0001c1 c8               ceq     r0,z
+0001c2 14 22            brf     L10000
+0001c4 29 00 00 10      la      r0,1048576
+0001c8 7d               push    r0
+0001c9 44 00            lc      r0,0
+0001cb 7d               push    r0
+0001cc 29 30 00 00      la      r0,_memTestAddressBus
+0001d0 25               jal     r1,(r0)
+0001d1 0c 06            add     sp,6
+0001d3 c8               ceq     r0,z
+0001d4 14 10            brf     L10000
+0001d6 29 00 00 10      la      r0,1048576
+0001da 7d               push    r0
+0001db 44 00            lc      r0,0
+0001dd 7d               push    r0
+0001de 29 05 01 00      la      r0,_memTestDevice
+0001e2 25               jal     r1,(r0)
+0001e3 0c 06            add     sp,6
+0001e5 ce               clu     z,r0
+0001e6 14 13            brf     L56
+
+L10000:
+                        ; line 242, file "memtest.c"
+0001e8 29 00 00 00      la      r0,__iob
+0001ec 09 06            add     r0,6
+0001ee 7d               push    r0
+0001ef 29 12 02 00      la      r0,L57
+0001f3 7d               push    r0
+0001f4 29 00 00 00      la      r0,_fputs
+0001f8 25               jal     r1,(r0)
+0001f9 0c 06            add     sp,6
+0001fb 13 b8            bra     L54
+
+L56:
+                        ; line 246, file "memtest.c"
+0001fd 29 00 00 00      la      r0,__iob
+000201 09 06            add     r0,6
+000203 7d               push    r0
+000204 29 18 02 00      la      r0,L59
+000208 7d               push    r0
+000209 29 00 00 00      la      r0,_fputs
+00020d 25               jal     r1,(r0)
+00020e 0c 06            add     sp,6
+000210 13 a3            bra     L54
+
+L57:
+000212 46
+000213 61
+000214 69
+000215 6c
+000216 20
+000217 00
+L59:
+000218 50
+000219 61
+00021a 73
+00021b 73
+00021c 20
+00021d 00
+00021e

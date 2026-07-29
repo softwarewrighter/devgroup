@@ -1,0 +1,164 @@
+                        ; UART interrupt service
+_uartaisr:
+000000 80               push    fp
+000001 7f               push    r2
+000002 7e               push    r1
+000003 7d               push    r0
+000004 62               mov     r0,c
+000005 7d               push    r0
+000006 29 19 00 00      la      r0,_uartcisr
+00000a 25               jal     r1,(r0)         ; Call C routine
+00000b 79               pop     r0
+00000c ce               clu     z,r0
+00000d 79               pop     r0
+00000e 7a               pop     r1
+00000f 7b               pop     r2
+000010 7c               pop     fp
+000011 68               jmp     (ir)
+
+_initivec:
+000012 80               push    fp
+000013 65               mov     fp,sp
+000014 4d 03            lw      r0,3(fp)
+000016 67               mov     iv,r0
+000017 7c               pop     fp
+000018 27               jmp     (r1)
+
+_uartcisr:
+000019 80               push    fp
+00001a 7f               push    r2
+00001b 7e               push    r1
+00001c 65               mov     fp,sp
+
+                        ; line 18, file "uartcint.c"
+00001d 44 10            lc      r0,16
+00001f 7d               push    r0
+000020 29 fb 00 00      la      r0,_widx
+000024 4a 00            lw      r0,(r0)
+000026 09 01            add     r0,1
+000028 7d               push    r0
+000029 29 00 00 00      la      r0,__irem
+00002d 25               jal     r1,(r0)
+00002e 0c 06            add     sp,6
+000030 2a f8 00 00      la      r1,_ridx
+000034 4f 00            lw      r1,(r1)
+000036 16               ceq     r0,r1
+000037 15 2c            brt     L22
+
+                        ; line 19, file "uartcint.c"
+000039 29 fb 00 00      la      r0,_widx
+00003d 4a 00            lw      r0,(r0)
+00003f 2a e8 00 00      la      r1,_cbuf
+000043 01               add     r0,r1
+000044 2a 00 01 ff      la      r1,-65280
+000048 31 00            lb      r1,(r1)
+00004a 84 00            sb      r1,(r0)
+
+                        ; line 20, file "uartcint.c"
+00004c 44 10            lc      r0,16
+00004e 7d               push    r0
+00004f 29 fb 00 00      la      r0,_widx
+000053 4a 00            lw      r0,(r0)
+000055 09 01            add     r0,1
+000057 7d               push    r0
+000058 29 00 00 00      la      r0,__irem
+00005c 25               jal     r1,(r0)
+00005d 0c 06            add     sp,6
+00005f 2a fb 00 00      la      r1,_widx
+000063 a4 00            sw      r0,(r1)
+000065 13 06            bra     L23
+
+L22:
+                        ; line 23, file "uartcint.c"
+000067 29 10 00 ff      la      r0,-65520
+00006b 45 00            lc      r1,0
+00006d 84 00            sb      r1,(r0)
+
+L23:
+00006f 69               mov     sp,fp
+000070 7a               pop     r1
+000071 7b               pop     r2
+000072 7c               pop     fp
+000073 27               jmp     (r1)
+
+_main:
+000074 80               push    fp
+000075 7f               push    r2
+000076 7e               push    r1
+000077 65               mov     fp,sp
+000078 0c ff            add     sp,-1
+
+                        ; line 32, file "uartcint.c"
+00007a 29 fb 00 00      la      r0,_widx
+00007e 45 00            lc      r1,0
+000080 a7 00            sw      r1,(r0)
+000082 29 f8 00 00      la      r0,_ridx
+000086 a7 00            sw      r1,(r0)
+
+                        ; line 35, file "uartcint.c"
+000088 29 00 00 00      la      r0,_uartaisr
+00008c 7d               push    r0
+00008d 29 12 00 00      la      r0,_initivec
+000091 25               jal     r1,(r0)
+000092 0c 03            add     sp,3
+
+L27:
+                        ; line 39, file "uartcint.c"
+000094 29 f8 00 00      la      r0,_ridx
+000098 4a 00            lw      r0,(r0)
+00009a 2a fb 00 00      la      r1,_widx
+00009e 4f 00            lw      r1,(r1)
+0000a0 16               ceq     r0,r1
+0000a1 15 39            brt     L29
+
+                        ; line 40, file "uartcint.c"
+0000a3 29 f8 00 00      la      r0,_ridx
+0000a7 4a 00            lw      r0,(r0)
+0000a9 2a e8 00 00      la      r1,_cbuf
+0000ad 01               add     r0,r1
+0000ae 2c 00            lb      r0,(r0)
+0000b0 83 ff            sb      r0,-1(fp)
+
+                        ; line 41, file "uartcint.c"
+0000b2 44 10            lc      r0,16
+0000b4 7d               push    r0
+0000b5 29 f8 00 00      la      r0,_ridx
+0000b9 4a 00            lw      r0,(r0)
+0000bb 09 01            add     r0,1
+0000bd 7d               push    r0
+0000be 29 00 00 00      la      r0,__irem
+0000c2 25               jal     r1,(r0)
+0000c3 0c 06            add     sp,6
+0000c5 2a f8 00 00      la      r1,_ridx
+0000c9 a4 00            sw      r0,(r1)
+
+                        ; line 42, file "uartcint.c"
+0000cb 29 00 00 00      la      r0,__iob
+0000cf 09 06            add     r0,6
+0000d1 7d               push    r0
+0000d2 2f ff            lb      r0,-1(fp)
+0000d4 7d               push    r0
+0000d5 29 00 00 00      la      r0,_fputc
+0000d9 25               jal     r1,(r0)
+0000da 0c 06            add     sp,6
+0000dc 13 b4            bra     L27
+
+L29:
+                        ; line 45, file "uartcint.c"
+0000de 29 10 00 ff      la      r0,-65520
+0000e2 45 01            lc      r1,1
+0000e4 84 00            sb      r1,(r0)
+0000e6 13 aa            bra     L27
+
+_cbuf:
+0000e8 00 00 00
+0000eb 00 00 00
+0000ee 00 00 00
+0000f1 00 00 00
+0000f4 00 00 00
+0000f7 00
+_ridx:
+0000f8 00 00 00
+_widx:
+0000fb 00 00 00
+0000fe

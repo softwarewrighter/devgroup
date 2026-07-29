@@ -1,0 +1,12 @@
+/disk1/github/softwarewrighter/devgroup/reference/plan.txt
+----------------------------------------------------------
+___ cor24 examples -> hw (fix te-rs) - /disk1/github/softwarewrighter/devgroup/reference/*.lgo
+___ cor24 examples -> sw (compatiple emulator?)  dcemu
+___ sw-embed examples set A (dcasm) -> hw (tools validation) assembler
+___ sw-embed examples set B (dcxtc) -> hw (tools validation) Tiny C
+___ how to compile and assemble <sample>.c to .s to .lgo
+___ how to assemble forth.s to forth.lgo and then what?  need monitor
+___ sw-embed examples set C (dcfth) -> hw (tools validation) Forth
+___ sw-embed examples set D (dcmls) -> hw (tools validation) Lisp
+___ rebuild cor24 cc
+___ compare cor24 with sw tiny C 

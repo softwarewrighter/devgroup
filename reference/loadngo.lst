@@ -1,0 +1,728 @@
+_putchr:
+000000 80               push    fp
+000001 7f               push    r2
+000002 7e               push    r1
+000003 65               mov     fp,sp
+
+                        ; line 30, file "loadngo.c"
+000004 2b 00 01 ff      la      r2,-65280
+
+L22:
+                        ; line 33, file "loadngo.c"
+000008 2e 01            lb      r0,1(r2)
+00000a 45 02            lc      r1,2
+00000c 0d               and     r0,r1
+00000d ce               clu     z,r0
+00000e 14 f6            brf     L22
+
+L24:
+                        ; line 36, file "loadngo.c"
+000010 2e 01            lb      r0,1(r2)
+000012 cb               cls     r0,z
+000013 15 f9            brt     L24
+
+                        ; line 39, file "loadngo.c"
+000015 2f 09            lb      r0,9(fp)
+000017 82 00            sb      r0,(r2)
+000019 69               mov     sp,fp
+00001a 7a               pop     r1
+00001b 7b               pop     r2
+00001c 7c               pop     fp
+00001d 27               jmp     (r1)
+
+_putstr:
+00001e 80               push    fp
+00001f 7f               push    r2
+000020 7e               push    r1
+000021 65               mov     fp,sp
+000022 55 09            lw      r2,9(fp)
+
+L28:
+                        ; line 44, file "loadngo.c"
+000024 2e 00            lb      r0,(r2)
+000026 ce               clu     z,r0
+000027 14 0c            brf     L29
+
+                        ; line 45, file "loadngo.c"
+000029 2e 00            lb      r0,(r2)
+00002b 7d               push    r0
+00002c 29 00 00 00      la      r0,_putchr
+000030 25               jal     r1,(r0)
+000031 0c 03            add     sp,3
+
+                        ; line 46, file "loadngo.c"
+000033 0b 01            add     r2,1
+000035 13 eb            bra     L28
+
+L29:
+000037 69               mov     sp,fp
+000038 7a               pop     r1
+000039 7b               pop     r2
+00003a 7c               pop     fp
+00003b 27               jmp     (r1)
+
+_getchr:
+00003c 80               push    fp
+00003d 7f               push    r2
+00003e 7e               push    r1
+00003f 65               mov     fp,sp
+
+L32:
+                        ; line 55, file "loadngo.c"
+000040 29 01 01 ff      la      r0,-65279
+000044 2c 00            lb      r0,(r0)
+000046 45 01            lc      r1,1
+000048 0d               and     r0,r1
+000049 ce               clu     z,r0
+00004a 14 f2            brf     L32
+
+                        ; line 57, file "loadngo.c"
+00004c 29 00 01 ff      la      r0,-65280
+000050 34 00            lb      r2,(r0)
+
+                        ; line 58, file "loadngo.c"
+000052 44 0d            lc      r0,13
+000054 17               ceq     r0,r2
+000055 14 00            brf     L34
+
+                        ; line 59, file "loadngo.c"
+000057 46 0a            lc      r2,10
+
+L34:
+                        ; line 62, file "loadngo.c"
+000059 b1               sxt     r0,r2
+00005a 69               mov     sp,fp
+00005b 7a               pop     r1
+00005c 7b               pop     r2
+00005d 7c               pop     fp
+00005e 27               jmp     (r1)
+
+_getline:
+00005f 80               push    fp
+000060 7f               push    r2
+000061 7e               push    r1
+000062 65               mov     fp,sp
+000063 0c ff            add     sp,-1
+
+                        ; line 71, file "loadngo.c"
+000065 46 00            lc      r2,0
+
+L37:
+                        ; line 72, file "loadngo.c"
+000067 44 50            lc      r0,80
+000069 1d               cls     r2,r0
+00006a 14 1d            brf     L38
+
+                        ; line 73, file "loadngo.c"
+00006c 29 3c 00 00      la      r0,_getchr
+000070 25               jal     r1,(r0)
+000071 7d               push    r0
+000072 29 00 00 00      la      r0,_putchr
+000076 25               jal     r1,(r0)
+000077 0c 03            add     sp,3
+000079 83 ff            sb      r0,-1(fp)
+00007b 2a 39 03 00      la      r1,_linbuf
+00007f 05               add     r1,r2
+000080 81 00            sb      r0,(r1)
+
+                        ; line 74, file "loadngo.c"
+000082 0b 01            add     r2,1
+
+                        ; line 75, file "loadngo.c"
+000084 2f ff            lb      r0,-1(fp)
+000086 45 0a            lc      r1,10
+000088 16               ceq     r0,r1
+000089 14 da            brf     L37
+
+L38:
+                        ; line 79, file "loadngo.c"
+00008b 29 39 03 00      la      r0,_linbuf
+00008f 02               add     r0,r2
+000090 45 00            lc      r1,0
+000092 84 00            sb      r1,(r0)
+
+                        ; line 81, file "loadngo.c"
+000094 2f ff            lb      r0,-1(fp)
+000096 45 0a            lc      r1,10
+000098 16               ceq     r0,r1
+000099 62               mov     r0,c
+00009a 69               mov     sp,fp
+00009b 7a               pop     r1
+00009c 7b               pop     r2
+00009d 7c               pop     fp
+00009e 27               jmp     (r1)
+
+_hexnum:
+00009f 80               push    fp
+0000a0 7f               push    r2
+0000a1 7e               push    r1
+0000a2 65               mov     fp,sp
+0000a3 43 09            lbu     r2,9(fp)
+
+                        ; line 88, file "loadngo.c"
+0000a5 44 30            lc      r0,48
+0000a7 23               clu     r2,r0
+0000a8 15 08            brt     L42
+0000aa 44 39            lc      r0,57
+0000ac 20               clu     r0,r2
+0000ad 15 03            brt     L42
+
+                        ; line 89, file "loadngo.c"
+0000af c0               zxt     r0,r2
+0000b0 09 d0            add     r0,-48
+0000b2 13 2d            bra     L41
+
+L42:
+                        ; line 91, file "loadngo.c"
+0000b4 44 41            lc      r0,65
+0000b6 23               clu     r2,r0
+0000b7 15 08            brt     L43
+0000b9 44 46            lc      r0,70
+0000bb 20               clu     r0,r2
+0000bc 15 03            brt     L43
+
+                        ; line 92, file "loadngo.c"
+0000be c0               zxt     r0,r2
+0000bf 09 c9            add     r0,-55
+0000c1 13 1e            bra     L41
+
+L43:
+                        ; line 96, file "loadngo.c"
+0000c3 29 d4 02 00      la      r0,_badhex
+0000c7 7d               push    r0
+0000c8 29 1e 00 00      la      r0,_putstr
+0000cc 25               jal     r1,(r0)
+0000cd 0c 03            add     sp,3
+
+                        ; line 97, file "loadngo.c"
+0000cf 7f               push    r2
+0000d0 29 00 00 00      la      r0,_putchr
+0000d4 25               jal     r1,(r0)
+0000d5 0c 03            add     sp,3
+
+                        ; line 98, file "loadngo.c"
+0000d7 44 0a            lc      r0,10
+0000d9 7d               push    r0
+0000da 29 00 00 00      la      r0,_putchr
+0000de 25               jal     r1,(r0)
+0000df 0c 03            add     sp,3
+
+                        ; line 100, file "loadngo.c"
+0000e1 44 ff            lc      r0,-1
+
+L41:
+0000e3 69               mov     sp,fp
+0000e4 7a               pop     r1
+0000e5 7b               pop     r2
+0000e6 7c               pop     fp
+0000e7 27               jmp     (r1)
+
+_dspbyte:
+0000e8 80               push    fp
+0000e9 7f               push    r2
+0000ea 7e               push    r1
+0000eb 65               mov     fp,sp
+
+                        ; line 107, file "loadngo.c"
+0000ec 46 08            lc      r2,8
+
+L46:
+                        ; line 109, file "loadngo.c"
+0000ee d0               clu     z,r2
+0000ef 14 17            brf     L47
+
+                        ; line 110, file "loadngo.c"
+0000f1 0b fc            add     r2,-4
+
+                        ; line 111, file "loadngo.c"
+0000f3 2f 09            lb      r0,9(fp)
+0000f5 91               sra     r0,r2
+0000f6 45 0f            lc      r1,15
+0000f8 0d               and     r0,r1
+0000f9 2a 28 03 00      la      r1,_hextab
+0000fd 01               add     r0,r1
+0000fe 2c 00            lb      r0,(r0)
+000100 7d               push    r0
+000101 29 00 00 00      la      r0,_putchr
+000105 25               jal     r1,(r0)
+000106 0c 03            add     sp,3
+000108 13 e2            bra     L46
+
+L47:
+00010a 69               mov     sp,fp
+00010b 7a               pop     r1
+00010c 7b               pop     r2
+00010d 7c               pop     fp
+00010e 27               jmp     (r1)
+
+_dogo:
+00010f 80               push    fp
+000110 7f               push    r2
+000111 7e               push    r1
+000112 65               mov     fp,sp
+000113 0c fa            add     sp,-6
+
+                        ; line 120, file "loadngo.c"
+000115 44 00            lc      r0,0
+000117 a6 fa            sw      r0,-6(fp)
+
+                        ; line 121, file "loadngo.c"
+000119 44 01            lc      r0,1
+00011b a6 fd            sw      r0,-3(fp)
+
+L50:
+                        ; line 125, file "loadngo.c"
+00011d 4d fd            lw      r0,-3(fp)
+00011f 09 01            add     r0,1
+000121 a6 fd            sw      r0,-3(fp)
+000123 09 ff            add     r0,-1
+000125 2a 39 03 00      la      r1,_linbuf
+000129 01               add     r0,r1
+00012a 34 00            lb      r2,(r0)
+
+                        ; line 126, file "loadngo.c"
+00012c 44 0a            lc      r0,10
+00012e 17               ceq     r0,r2
+00012f 14 5a            brf     L52
+
+                        ; line 129, file "loadngo.c"
+000131 4d fd            lw      r0,-3(fp)
+000133 45 02            lc      r1,2
+000135 16               ceq     r0,r1
+000136 14 18            brf     L53
+
+L54:
+                        ; line 131, file "loadngo.c"
+000138 29 e9 02 00      la      r0,_fmterr
+00013c 7d               push    r0
+00013d 29 1e 00 00      la      r0,_putstr
+000141 25               jal     r1,(r0)
+000142 0c 03            add     sp,3
+
+                        ; line 132, file "loadngo.c"
+000144 29 39 03 00      la      r0,_linbuf
+000148 7d               push    r0
+000149 29 1e 00 00      la      r0,_putstr
+00014d 25               jal     r1,(r0)
+00014e 0c 03            add     sp,3
+000150 13 58            bra     L49
+
+L53:
+                        ; line 137, file "loadngo.c"
+000152 29 fb 02 00      la      r0,_jmpmsg
+000156 7d               push    r0
+000157 29 1e 00 00      la      r0,_putstr
+00015b 25               jal     r1,(r0)
+00015c 0c 03            add     sp,3
+
+                        ; line 138, file "loadngo.c"
+00015e 46 03            lc      r2,3
+
+L55:
+                        ; line 139, file "loadngo.c"
+000160 d0               clu     z,r2
+000161 0b ff            add     r2,-1
+000163 14 0e            brf     L56
+
+                        ; line 140, file "loadngo.c"
+000165 44 fa            lc      r0,-6
+000167 58               add     r0,fp
+000168 02               add     r0,r2
+000169 2c 00            lb      r0,(r0)
+00016b 7d               push    r0
+00016c 29 e8 00 00      la      r0,_dspbyte
+000170 25               jal     r1,(r0)
+000171 0c 03            add     sp,3
+000173 13 e9            bra     L55
+
+L56:
+                        ; line 142, file "loadngo.c"
+000175 44 0a            lc      r0,10
+000177 7d               push    r0
+000178 29 00 00 00      la      r0,_putchr
+00017c 25               jal     r1,(r0)
+00017d 0c 03            add     sp,3
+
+L57:
+                        ; line 145, file "loadngo.c"
+00017f 29 01 01 ff      la      r0,-65279
+000183 2c 00            lb      r0,(r0)
+000185 cb               cls     r0,z
+000186 15 f5            brt     L57
+
+                        ; line 148, file "loadngo.c"
+000188 4d fa            lw      r0,-6(fp)
+00018a 25               jal     r1,(r0)
+00018b 13 1d            bra     L49
+
+L52:
+                        ; line 153, file "loadngo.c"
+00018d 4d fd            lw      r0,-3(fp)
+00018f 45 08            lc      r1,8
+000191 16               ceq     r0,r1
+000192 15 a2            brt     L54
+
+                        ; line 158, file "loadngo.c"
+000194 7f               push    r2
+000195 29 9f 00 00      la      r0,_hexnum
+000199 25               jal     r1,(r0)
+00019a 0c 03            add     sp,3
+00019c 5e               mov     r2,r0
+00019d cd               cls     r2,z
+00019e 15 0a            brt     L49
+
+                        ; line 163, file "loadngo.c"
+0001a0 4d fa            lw      r0,-6(fp)
+0001a2 45 04            lc      r1,4
+0001a4 8a               shl     r0,r1
+0001a5 74               or      r0,r2
+0001a6 a6 fa            sw      r0,-6(fp)
+0001a8 c7 1d 01 00      jmp     L50
+
+L49:
+0001ac 69               mov     sp,fp
+0001ad 7a               pop     r1
+0001ae 7b               pop     r2
+0001af 7c               pop     fp
+0001b0 27               jmp     (r1)
+
+_doload:
+0001b1 80               push    fp
+0001b2 7f               push    r2
+0001b3 7e               push    r1
+0001b4 65               mov     fp,sp
+0001b5 0c f9            add     sp,-7
+
+                        ; line 171, file "loadngo.c"
+0001b7 44 00            lc      r0,0
+0001b9 83 ff            sb      r0,-1(fp)
+0001bb a6 f9            sw      r0,-7(fp)
+
+                        ; line 172, file "loadngo.c"
+0001bd 44 01            lc      r0,1
+0001bf a6 fc            sw      r0,-4(fp)
+
+L63:
+                        ; line 176, file "loadngo.c"
+0001c1 4d fc            lw      r0,-4(fp)
+0001c3 09 01            add     r0,1
+0001c5 a6 fc            sw      r0,-4(fp)
+0001c7 09 ff            add     r0,-1
+0001c9 2a 39 03 00      la      r1,_linbuf
+0001cd 01               add     r0,r1
+0001ce 34 00            lb      r2,(r0)
+
+                        ; line 177, file "loadngo.c"
+0001d0 44 0a            lc      r0,10
+0001d2 17               ceq     r0,r2
+0001d3 14 24            brf     L65
+
+                        ; line 181, file "loadngo.c"
+0001d5 4d fc            lw      r0,-4(fp)
+0001d7 45 0a            lc      r1,10
+0001d9 19               cls     r0,r1
+0001da 15 03            brt     L10001
+0001dc 2f ff            lb      r0,-1(fp)
+0001de ce               clu     z,r0
+0001df 14 58            brf     L62
+
+L10001:
+                        ; line 182, file "loadngo.c"
+0001e1 29 e9 02 00      la      r0,_fmterr
+0001e5 7d               push    r0
+0001e6 29 1e 00 00      la      r0,_putstr
+0001ea 25               jal     r1,(r0)
+0001eb 0c 03            add     sp,3
+
+                        ; line 183, file "loadngo.c"
+0001ed 29 39 03 00      la      r0,_linbuf
+0001f1 7d               push    r0
+0001f2 29 1e 00 00      la      r0,_putstr
+0001f6 25               jal     r1,(r0)
+0001f7 0c 03            add     sp,3
+0001f9 13 3e            bra     L62
+
+L65:
+                        ; line 189, file "loadngo.c"
+0001fb 7f               push    r2
+0001fc 29 9f 00 00      la      r0,_hexnum
+000200 25               jal     r1,(r0)
+000201 0c 03            add     sp,3
+000203 5e               mov     r2,r0
+000204 cd               cls     r2,z
+000205 15 32            brt     L62
+
+                        ; line 194, file "loadngo.c"
+000207 4d fc            lw      r0,-4(fp)
+000209 45 08            lc      r1,8
+00020b 19               cls     r0,r1
+00020c 14 08            brf     L68
+
+                        ; line 195, file "loadngo.c"
+00020e 4d f9            lw      r0,-7(fp)
+000210 45 04            lc      r1,4
+000212 8a               shl     r0,r1
+000213 74               or      r0,r2
+000214 a6 f9            sw      r0,-7(fp)
+000216 13 a7            bra     L63
+
+L68:
+                        ; line 199, file "loadngo.c"
+000218 2f ff            lb      r0,-1(fp)
+00021a ce               clu     z,r0
+00021b 15 07            brt     L70
+
+                        ; line 202, file "loadngo.c"
+00021d 44 04            lc      r0,4
+00021f 8e               shl     r2,r0
+000220 4d f9            lw      r0,-7(fp)
+000222 87 00            sb      r2,(r0)
+000224 13 0b            bra     L71
+
+L70:
+                        ; line 206, file "loadngo.c"
+000226 4d f9            lw      r0,-7(fp)
+000228 2c 00            lb      r0,(r0)
+00022a 77               or      r2,r0
+
+                        ; line 207, file "loadngo.c"
+00022b 4d f9            lw      r0,-7(fp)
+00022d 09 01            add     r0,1
+00022f a6 f9            sw      r0,-7(fp)
+000231 87 ff            sb      r2,-1(r0)
+
+L71:
+                        ; line 211, file "loadngo.c"
+000233 2f ff            lb      r0,-1(fp)
+000235 c8               ceq     r0,z
+000236 62               mov     r0,c
+000237 83 ff            sb      r0,-1(fp)
+000239 13 84            bra     L63
+
+L62:
+00023b 69               mov     sp,fp
+00023c 7a               pop     r1
+00023d 7b               pop     r2
+00023e 7c               pop     fp
+00023f 27               jmp     (r1)
+
+_main:
+000240 80               push    fp
+000241 7f               push    r2
+000242 7e               push    r1
+000243 65               mov     fp,sp
+
+                        ; line 219, file "loadngo.c"
+000244 29 02 01 ff      la      r0,-65278
+000248 45 03            lc      r1,3
+00024a 84 00            sb      r1,(r0)
+
+                        ; line 222, file "loadngo.c"
+00024c 29 bf 02 00      la      r0,_inimsg
+000250 7d               push    r0
+000251 29 1e 00 00      la      r0,_putstr
+000255 25               jal     r1,(r0)
+000256 0c 03            add     sp,3
+
+L74:
+                        ; line 228, file "loadngo.c"
+000258 29 5f 00 00      la      r0,_getline
+00025c 25               jal     r1,(r0)
+00025d ce               clu     z,r0
+00025e 15 0c            brt     L76
+
+                        ; line 229, file "loadngo.c"
+000260 29 04 03 00      la      r0,_llnerr
+000264 7d               push    r0
+000265 29 1e 00 00      la      r0,_putstr
+000269 25               jal     r1,(r0)
+00026a 0c 03            add     sp,3
+00026c 13 e8            bra     L74
+
+L76:
+                        ; line 234, file "loadngo.c"
+00026e 29 38 03 00      la      r0,_toggled
+000272 30 00            lb      r1,(r0)
+000274 0a 01            add     r1,1
+000276 84 00            sb      r1,(r0)
+000278 29 00 00 ff      la      r0,-65536
+00027c 84 00            sb      r1,(r0)
+
+                        ; line 237, file "loadngo.c"
+00027e 2a 39 03 00      la      r1,_linbuf
+000282 2d 00            lb      r0,(r1)
+000284 13 26            bra     L78
+
+L80:
+                        ; line 241, file "loadngo.c"
+000286 29 0f 01 00      la      r0,_dogo
+00028a 25               jal     r1,(r0)
+00028b 13 c9            bra     L74
+
+L81:
+                        ; line 244, file "loadngo.c"
+00028d 29 b1 01 00      la      r0,_doload
+000291 25               jal     r1,(r0)
+000292 13 c2            bra     L74
+
+L82:
+                        ; line 247, file "loadngo.c"
+000294 29 15 03 00      la      r0,_unkerr
+000298 7d               push    r0
+000299 29 1e 00 00      la      r0,_putstr
+00029d 25               jal     r1,(r0)
+00029e 0c 03            add     sp,3
+
+                        ; line 248, file "loadngo.c"
+0002a0 29 39 03 00      la      r0,_linbuf
+0002a4 7d               push    r0
+0002a5 29 1e 00 00      la      r0,_putstr
+0002a9 25               jal     r1,(r0)
+0002aa 0c 03            add     sp,3
+0002ac 13 a8            bra     L74
+
+L78:
+0002ae 45 3b            lc      r1,59
+0002b0 16               ceq     r0,r1
+0002b1 15 a3            brt     L74
+0002b3 45 47            lc      r1,71
+0002b5 16               ceq     r0,r1
+0002b6 15 cc            brt     L80
+0002b8 45 4c            lc      r1,76
+0002ba 16               ceq     r0,r1
+0002bb 15 ce            brt     L81
+0002bd 13 d3            bra     L82
+
+_inimsg:
+0002bf 4c
+0002c0 6f
+0002c1 61
+0002c2 64
+0002c3 20
+0002c4 61
+0002c5 6e
+0002c6 64
+0002c7 20
+0002c8 67
+0002c9 6f
+0002ca 20
+0002cb 6d
+0002cc 6f
+0002cd 6e
+0002ce 69
+0002cf 74
+0002d0 6f
+0002d1 72
+0002d2 0a
+0002d3 00
+_badhex:
+0002d4 3f
+0002d5 20
+0002d6 42
+0002d7 61
+0002d8 64
+0002d9 20
+0002da 68
+0002db 65
+0002dc 78
+0002dd 20
+0002de 63
+0002df 68
+0002e0 61
+0002e1 72
+0002e2 61
+0002e3 63
+0002e4 74
+0002e5 65
+0002e6 72
+0002e7 3a
+0002e8 00
+_fmterr:
+0002e9 3f
+0002ea 20
+0002eb 43
+0002ec 6f
+0002ed 6d
+0002ee 6d
+0002ef 61
+0002f0 6e
+0002f1 64
+0002f2 20
+0002f3 66
+0002f4 6f
+0002f5 72
+0002f6 6d
+0002f7 61
+0002f8 74
+0002f9 3a
+0002fa 00
+_jmpmsg:
+0002fb 4a
+0002fc 75
+0002fd 6d
+0002fe 70
+0002ff 20
+000300 74
+000301 6f
+000302 20
+000303 00
+_llnerr:
+000304 3f
+000305 20
+000306 4c
+000307 69
+000308 6e
+000309 65
+00030a 20
+00030b 74
+00030c 6f
+00030d 6f
+00030e 20
+00030f 6c
+000310 6f
+000311 6e
+000312 67
+000313 0a
+000314 00
+_unkerr:
+000315 3f
+000316 20
+000317 55
+000318 6e
+000319 6b
+00031a 6e
+00031b 6f
+00031c 77
+00031d 6e
+00031e 20
+00031f 63
+000320 6f
+000321 6d
+000322 6d
+000323 61
+000324 6e
+000325 64
+000326 3a
+000327 00
+_hextab:
+000328 30
+000329 31
+00032a 32
+00032b 33
+00032c 34
+00032d 35
+00032e 36
+00032f 37
+000330 38
+000331 39
+000332 41
+000333 42
+000334 43
+000335 44
+000336 45
+000337 46
+_toggled:
+000338 ff
+_linbuf:
+000339
+00038a

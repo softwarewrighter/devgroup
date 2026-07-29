@@ -1,0 +1,243 @@
+_main:
+000000 80               push    fp
+000001 7f               push    r2
+000002 7e               push    r1
+000003 65               mov     fp,sp
+
+                        ; line 8, file "pidemo.c"
+000004 29 6d 01 00      la      r0,_n
+000008 45 00            lc      r1,0
+00000a a7 00            sw      r1,(r0)
+
+L24:
+                        ; line 8, file "pidemo.c"
+00000c 29 6d 01 00      la      r0,_n
+000010 4a 00            lw      r0,(r0)
+000012 2a a0 86 01      la      r1,100000
+000016 19               cls     r0,r1
+000017 15 02            brt     L20000
+000019 c7 26 01 00      jmp     L23
+
+L20000:
+                        ; line 9, file "pidemo.c"
+00001d 29 2d 01 00      la      r0,_denom
+000021 7d               push    r0
+000022 0c f8            add     sp,-8
+000024 59               mov     r0,sp
+000025 7d               push    r0
+000026 29 45 01 00      la      r0,L25
+00002a 7d               push    r0
+00002b 29 00 00 00      la      r0,__dasgn
+00002f 25               jal     r1,(r0)
+000030 0c fe            add     sp,-2
+000032 59               mov     r0,sp
+000033 7d               push    r0
+000034 29 2d 01 00      la      r0,_denom
+000038 7d               push    r0
+000039 29 00 00 00      la      r0,__dasgn
+00003d 25               jal     r1,(r0)
+00003e 0c 06            add     sp,6
+000040 29 00 00 00      la      r0,__dadd
+000044 25               jal     r1,(r0)
+000045 0c 10            add     sp,16
+000047 7d               push    r0
+000048 29 00 00 00      la      r0,__dasgn
+00004c 25               jal     r1,(r0)
+00004d 0c 06            add     sp,6
+
+                        ; line 10, file "pidemo.c"
+00004f 29 3d 01 00      la      r0,_sign
+000053 7d               push    r0
+000054 0c f8            add     sp,-8
+000056 59               mov     r0,sp
+000057 7d               push    r0
+000058 29 4d 01 00      la      r0,L26
+00005c 7d               push    r0
+00005d 29 00 00 00      la      r0,__dasgn
+000061 25               jal     r1,(r0)
+000062 0c fe            add     sp,-2
+000064 59               mov     r0,sp
+000065 7d               push    r0
+000066 29 3d 01 00      la      r0,_sign
+00006a 7d               push    r0
+00006b 29 00 00 00      la      r0,__dasgn
+00006f 25               jal     r1,(r0)
+000070 0c 06            add     sp,6
+000072 29 00 00 00      la      r0,__dmul
+000076 25               jal     r1,(r0)
+000077 0c 10            add     sp,16
+000079 7d               push    r0
+00007a 29 00 00 00      la      r0,__dasgn
+00007e 25               jal     r1,(r0)
+00007f 0c 06            add     sp,6
+
+                        ; line 11, file "pidemo.c"
+000081 29 35 01 00      la      r0,_PI4
+000085 7d               push    r0
+000086 0c f8            add     sp,-8
+000088 59               mov     r0,sp
+000089 7d               push    r0
+00008a 0c f8            add     sp,-8
+00008c 59               mov     r0,sp
+00008d 7d               push    r0
+00008e 29 2d 01 00      la      r0,_denom
+000092 7d               push    r0
+000093 29 00 00 00      la      r0,__dasgn
+000097 25               jal     r1,(r0)
+000098 0c fe            add     sp,-2
+00009a 59               mov     r0,sp
+00009b 7d               push    r0
+00009c 29 3d 01 00      la      r0,_sign
+0000a0 7d               push    r0
+0000a1 29 00 00 00      la      r0,__dasgn
+0000a5 25               jal     r1,(r0)
+0000a6 0c 06            add     sp,6
+0000a8 29 00 00 00      la      r0,__ddiv
+0000ac 25               jal     r1,(r0)
+0000ad 0c 10            add     sp,16
+0000af 7d               push    r0
+0000b0 29 00 00 00      la      r0,__dasgn
+0000b4 25               jal     r1,(r0)
+0000b5 0c fe            add     sp,-2
+0000b7 59               mov     r0,sp
+0000b8 7d               push    r0
+0000b9 29 35 01 00      la      r0,_PI4
+0000bd 7d               push    r0
+0000be 29 00 00 00      la      r0,__dasgn
+0000c2 25               jal     r1,(r0)
+0000c3 0c 06            add     sp,6
+0000c5 29 00 00 00      la      r0,__dadd
+0000c9 25               jal     r1,(r0)
+0000ca 0c 10            add     sp,16
+0000cc 7d               push    r0
+0000cd 29 00 00 00      la      r0,__dasgn
+0000d1 25               jal     r1,(r0)
+0000d2 0c 06            add     sp,6
+
+                        ; line 12, file "pidemo.c"
+0000d4 0c f8            add     sp,-8
+0000d6 59               mov     r0,sp
+0000d7 7d               push    r0
+0000d8 0c f8            add     sp,-8
+0000da 59               mov     r0,sp
+0000db 7d               push    r0
+0000dc 29 55 01 00      la      r0,L28
+0000e0 7d               push    r0
+0000e1 29 00 00 00      la      r0,__dasgn
+0000e5 25               jal     r1,(r0)
+0000e6 0c fe            add     sp,-2
+0000e8 59               mov     r0,sp
+0000e9 7d               push    r0
+0000ea 29 35 01 00      la      r0,_PI4
+0000ee 7d               push    r0
+0000ef 29 00 00 00      la      r0,__dasgn
+0000f3 25               jal     r1,(r0)
+0000f4 0c 06            add     sp,6
+0000f6 29 00 00 00      la      r0,__dmul
+0000fa 25               jal     r1,(r0)
+0000fb 0c 10            add     sp,16
+0000fd 7d               push    r0
+0000fe 29 00 00 00      la      r0,__dasgn
+000102 25               jal     r1,(r0)
+000103 0c 06            add     sp,6
+000105 29 6d 01 00      la      r0,_n
+000109 4a 00            lw      r0,(r0)
+00010b 7d               push    r0
+00010c 29 5d 01 00      la      r0,L27
+000110 7d               push    r0
+000111 29 00 00 00      la      r0,_printf
+000115 25               jal     r1,(r0)
+000116 0c 0e            add     sp,14
+
+                        ; line 13, file "pidemo.c"
+000118 29 6d 01 00      la      r0,_n
+00011c 4e 00            lw      r1,(r0)
+00011e 0a 01            add     r1,1
+000120 a7 00            sw      r1,(r0)
+000122 c7 0c 00 00      jmp     L24
+
+L23:
+                        ; line 15, file "pidemo.c"
+000126 44 00            lc      r0,0
+000128 69               mov     sp,fp
+000129 7a               pop     r1
+00012a 7b               pop     r2
+00012b 7c               pop     fp
+00012c 27               jmp     (r1)
+
+_denom:
+00012d 00
+00012e 00
+00012f 00
+000130 00
+000131 00
+000132 00
+000133 f0
+000134 3f
+_PI4:
+000135 00
+000136 00
+000137 00
+000138 00
+000139 00
+00013a 00
+00013b f0
+00013c 3f
+_sign:
+00013d 00
+00013e 00
+00013f 00
+000140 00
+000141 00
+000142 00
+000143 f0
+000144 3f
+L25:
+000145 00
+000146 00
+000147 00
+000148 00
+000149 00
+00014a 00
+00014b 00
+00014c 40
+L26:
+00014d 00
+00014e 00
+00014f 00
+000150 00
+000151 00
+000152 00
+000153 f0
+000154 bf
+L28:
+000155 00
+000156 00
+000157 00
+000158 00
+000159 00
+00015a 00
+00015b 10
+00015c 40
+L27:
+00015d 4e
+00015e 3d
+00015f 25
+000160 64
+000161 2c
+000162 20
+000163 50
+000164 49
+000165 3d
+000166 25
+000167 2e
+000168 31
+000169 37
+00016a 66
+00016b 0a
+00016c 00
+_n:
+00016d
+fltused:
+000170
+000170

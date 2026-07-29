@@ -1,0 +1,62 @@
+                    start:
+0000: 29 00 EC FE    la      r0,0FEEC00h
+0004: 66             mov     sp,r0
+0005: 29 00 34 12    la      r0,0123400h
+0009: 2B E8 03 00    la      r2,1000
+                    push_loop:
+000D: 7D             push    r0
+000E: 09 01          add     r0,1
+0010: 0B FF          add     r2,-1
+0012: CA             ceq     r2,z
+0013: 14 F6          brf     push_loop
+0015: 2B E8 03 00    la      r2,1000
+                    pop_loop:
+0019: 09 FF          add     r0,-1
+001B: 7A             pop     r1
+001C: 16             ceq     r0,r1
+001D: 14 16          brf     fail
+001F: 0B FF          add     r2,-1
+0021: CA             ceq     r2,z
+0022: 14 F3          brf     pop_loop
+0024: 2A 00 EC FE    la      r1,0FEEC00h
+0028: 59             mov     r0,sp
+0029: 16             ceq     r0,r1
+002A: 14 09          brf     fail
+002C: 29 63 00 00    la      r0,pass_text
+0030: 2B 47 00 00    la      r2,puts
+0034: D2             jal     r1,(r2)
+                    halt:
+0035: 13 FC          bra     halt
+                    fail:
+0037: 29 00 EC FE    la      r0,0FEEC00h
+003B: 66             mov     sp,r0
+003C: 29 75 00 00    la      r0,fail_text
+0040: 2B 47 00 00    la      r2,puts
+0044: D2             jal     r1,(r2)
+0045: 13 EC          bra     halt
+                    puts:
+0047: 7E             push    r1
+0048: 7F             push    r2
+0049: 5E             mov     r2,r0
+                    puts_next:
+004A: 3A 00          lbu     r0,0(r2)
+004C: C8             ceq     r0,z
+004D: 15 0F          brt     puts_done
+004F: 7D             push    r0
+                    puts_wait:
+0050: 2A 00 01 FF    la      r1,-65280
+0054: 2D 01          lb      r0,1(r1)
+0056: CB             cls     r0,z
+0057: 15 F5          brt     puts_wait
+0059: 79             pop     r0
+005A: 81 00          sb      r0,0(r1)
+005C: 0B 01          add     r2,1
+005E: 13 E8          bra     puts_next
+                    puts_done:
+0060: 7B             pop     r2
+0061: 7A             pop     r1
+0062: 27             jmp     (r1)
+                    pass_text:
+0063: 53 54 41 43 4B 20 45 42 52 33 20 50 41 53 53 0D 0A 00 .byte   83,84,65,67,75,32,69,66,82,51,32,80,65,83,83,13,10,0
+                    fail_text:
+0075: 53 54 41 43 4B 20 45 42 52 33 20 46 41 49 4C 0D 0A 00 .byte   83,84,65,67,75,32,69,66,82,51,32,70,65,73,76,13,10,0

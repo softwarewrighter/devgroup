@@ -1,0 +1,167 @@
+_main:
+000000 80               push    fp
+000001 7f               push    r2
+000002 7e               push    r1
+000003 65               mov     fp,sp
+000004 0c f4            add     sp,-12
+
+                        ; line 11, file "sieve.c"
+000006 29 9c 00 00      la      r0,L19
+00000a 7d               push    r0
+00000b 29 00 00 00      la      r0,_printf
+00000f 25               jal     r1,(r0)
+000010 0c 03            add     sp,3
+
+                        ; line 13, file "sieve.c"
+000012 44 01            lc      r0,1
+000014 a6 f4            sw      r0,-12(fp)
+
+L22:
+                        ; line 13, file "sieve.c"
+000016 4d f4            lw      r0,-12(fp)
+000018 2a e8 03 00      la      r1,1000
+00001c 1b               cls     r1,r0
+00001d 15 65            brt     L21
+
+                        ; line 14, file "sieve.c"
+00001f 44 00            lc      r0,0
+000021 a6 f7            sw      r0,-9(fp)
+
+                        ; line 15, file "sieve.c"
+000023 46 00            lc      r2,0
+
+L25:
+                        ; line 15, file "sieve.c"
+000025 29 fe 1f 00      la      r0,8190
+000029 1a               cls     r0,r2
+00002a 15 0b            brt     L24
+
+                        ; line 16, file "sieve.c"
+00002c 29 b9 00 00      la      r0,_flags
+000030 02               add     r0,r2
+000031 45 01            lc      r1,1
+000033 84 00            sb      r1,(r0)
+
+                        ; line 16, file "sieve.c"
+000035 0b 01            add     r2,1
+000037 13 ea            bra     L25
+
+L24:
+                        ; line 17, file "sieve.c"
+000039 46 00            lc      r2,0
+
+L28:
+                        ; line 17, file "sieve.c"
+00003b 29 fe 1f 00      la      r0,8190
+00003f 1a               cls     r0,r2
+000040 15 3a            brt     L27
+
+                        ; line 18, file "sieve.c"
+000042 29 b9 00 00      la      r0,_flags
+000046 02               add     r0,r2
+000047 2c 00            lb      r0,(r0)
+000049 ce               clu     z,r0
+00004a 14 2c            brf     L29
+
+                        ; line 19, file "sieve.c"
+00004c 57               mov     r0,r2
+00004d 02               add     r0,r2
+00004e 09 03            add     r0,3
+000050 a6 fd            sw      r0,-3(fp)
+
+                        ; line 20, file "sieve.c"
+000052 4d fd            lw      r0,-3(fp)
+000054 02               add     r0,r2
+000055 a6 fa            sw      r0,-6(fp)
+
+L32:
+                        ; line 20, file "sieve.c"
+000057 4d fa            lw      r0,-6(fp)
+000059 2a fe 1f 00      la      r1,8190
+00005d 1b               cls     r1,r0
+00005e 15 12            brt     L31
+
+                        ; line 21, file "sieve.c"
+000060 4d fa            lw      r0,-6(fp)
+000062 2a b9 00 00      la      r1,_flags
+000066 01               add     r0,r1
+000067 45 00            lc      r1,0
+000069 84 00            sb      r1,(r0)
+
+                        ; line 21, file "sieve.c"
+00006b 4d fa            lw      r0,-6(fp)
+00006d 51 fd            lw      r1,-3(fp)
+00006f 01               add     r0,r1
+000070 a6 fa            sw      r0,-6(fp)
+000072 13 e1            bra     L32
+
+L31:
+                        ; line 22, file "sieve.c"
+000074 4d f7            lw      r0,-9(fp)
+000076 09 01            add     r0,1
+000078 a6 f7            sw      r0,-9(fp)
+
+L29:
+                        ; line 24, file "sieve.c"
+00007a 0b 01            add     r2,1
+00007c 13 bb            bra     L28
+
+L27:
+                        ; line 24, file "sieve.c"
+00007e 4d f4            lw      r0,-12(fp)
+000080 09 01            add     r0,1
+000082 a6 f4            sw      r0,-12(fp)
+000084 13 8e            bra     L22
+
+L21:
+                        ; line 26, file "sieve.c"
+000086 4d f7            lw      r0,-9(fp)
+000088 7d               push    r0
+000089 29 ad 00 00      la      r0,L33
+00008d 7d               push    r0
+00008e 29 00 00 00      la      r0,_printf
+000092 25               jal     r1,(r0)
+000093 0c 06            add     sp,6
+
+                        ; line 28, file "sieve.c"
+000095 44 00            lc      r0,0
+000097 69               mov     sp,fp
+000098 7a               pop     r1
+000099 7b               pop     r2
+00009a 7c               pop     fp
+00009b 27               jmp     (r1)
+
+L19:
+00009c 31
+00009d 30
+00009e 30
+00009f 30
+0000a0 20
+0000a1 69
+0000a2 74
+0000a3 65
+0000a4 72
+0000a5 61
+0000a6 74
+0000a7 69
+0000a8 6f
+0000a9 6e
+0000aa 73
+0000ab 0a
+0000ac 00
+L33:
+0000ad 25
+0000ae 64
+0000af 20
+0000b0 70
+0000b1 72
+0000b2 69
+0000b3 6d
+0000b4 65
+0000b5 73
+0000b6 2e
+0000b7 0a
+0000b8 00
+_flags:
+0000b9
+0020b8

@@ -1,0 +1,269 @@
+                    _start:
+0000: 29 41 01 00    la      r0,_main
+0004: 25             jal     r1,(r0)
+                    _halt:
+0005: 13 FC          bra     _halt
+                    _uart_putc:
+0007: 80             push    fp
+0008: 7F             push    r2
+0009: 7E             push    r1
+000A: 65             mov     fp,sp
+                    L1:
+000B: 29 01 01 FF    la      r0,16711937
+000F: 38 00          lbu     r0,0(r0)
+0011: 2A 80 00 00    la      r1,128
+0015: 0D             and     r0,r1
+0016: C8             ceq     r0,z
+0017: 15 00          brt     L2
+0019: 13 EE          bra     L1
+                    L2:
+001B: 29 00 01 FF    la      r0,16711936
+001F: 5A             mov     r1,r0
+0020: 4D 09          lw      r0,9(fp)
+0022: 81 00          sb      r0,0(r1)
+                    L0:
+0024: 69             mov     sp,fp
+0025: 7A             pop     r1
+0026: 7B             pop     r2
+0027: 7C             pop     fp
+0028: 27             jmp     (r1)
+                    _print_digits:
+0029: 80             push    fp
+002A: 7F             push    r2
+002B: 7E             push    r1
+002C: 65             mov     fp,sp
+002D: 0C FD          add     sp,-3
+002F: 44 00          lc      r0,0
+0031: A6 FD          sw      r0,-3(fp)
+                    L4:
+0033: 4D FD          lw      r0,-3(fp)
+0035: 51 0C          lw      r1,12(fp)
+0037: 19             cls     r0,r1
+0038: 14 16          brf     L6
+003A: 4D 09          lw      r0,9(fp)
+003C: 51 FD          lw      r1,-3(fp)
+003E: 01             add     r0,r1
+003F: 38 00          lbu     r0,0(r0)
+0041: 7D             push    r0
+0042: 29 07 00 00    la      r0,_uart_putc
+0046: 25             jal     r1,(r0)
+0047: 0C 03          add     sp,3
+                    L5:
+0049: 4D FD          lw      r0,-3(fp)
+004B: 45 01          lc      r1,1
+004D: 01             add     r0,r1
+004E: A6 FD          sw      r0,-3(fp)
+0050: 13 DF          bra     L4
+                    L6:
+0052: 44 0D          lc      r0,13
+0054: 7D             push    r0
+0055: 29 07 00 00    la      r0,_uart_putc
+0059: 25             jal     r1,(r0)
+005A: 0C 03          add     sp,3
+005C: 44 0A          lc      r0,10
+005E: 7D             push    r0
+005F: 29 07 00 00    la      r0,_uart_putc
+0063: 25             jal     r1,(r0)
+0064: 0C 03          add     sp,3
+                    L3:
+0066: 69             mov     sp,fp
+0067: 7A             pop     r1
+0068: 7B             pop     r2
+0069: 7C             pop     fp
+006A: 27             jmp     (r1)
+                    _increment_digits:
+006B: 80             push    fp
+006C: 7F             push    r2
+006D: 7E             push    r1
+006E: 65             mov     fp,sp
+006F: 0C FD          add     sp,-3
+0071: 4D 0C          lw      r0,12(fp)
+0073: 45 01          lc      r1,1
+0075: 9C             sub     r0,r1
+0076: A6 FD          sw      r0,-3(fp)
+                    L8:
+0078: 4D FD          lw      r0,-3(fp)
+007A: 45 00          lc      r1,0
+007C: 19             cls     r0,r1
+007D: 62             mov     r0,c
+007E: C8             ceq     r0,z
+007F: 62             mov     r0,c
+0080: C8             ceq     r0,z
+0081: 15 10          brt     L10
+0083: 4D 09          lw      r0,9(fp)
+0085: 51 FD          lw      r1,-3(fp)
+0087: 01             add     r0,r1
+0088: 38 00          lbu     r0,0(r0)
+008A: 45 39          lc      r1,57
+008C: 16             ceq     r0,r1
+008D: 62             mov     r0,c
+008E: C8             ceq     r0,z
+008F: 15 02          brt     L10
+0091: 44 01          lc      r0,1
+0093: 13 00          bra     L11
+                    L10:
+0095: 44 00          lc      r0,0
+                    L11:
+0097: C8             ceq     r0,z
+0098: 15 14          brt     L9
+009A: 4D 09          lw      r0,9(fp)
+009C: 51 FD          lw      r1,-3(fp)
+009E: 01             add     r0,r1
+009F: 5A             mov     r1,r0
+00A0: 44 30          lc      r0,48
+00A2: 81 00          sb      r0,0(r1)
+00A4: 4D FD          lw      r0,-3(fp)
+00A6: 45 01          lc      r1,1
+00A8: 9C             sub     r0,r1
+00A9: A6 FD          sw      r0,-3(fp)
+00AB: 2B 78 00 00    la      r2,L8
+00AF: 28             jmp     (r2)
+                    L9:
+00B0: 4D FD          lw      r0,-3(fp)
+00B2: CB             cls     r0,z
+00B3: 15 19          brt     L13
+00B5: 4D 09          lw      r0,9(fp)
+00B7: 51 FD          lw      r1,-3(fp)
+00B9: 01             add     r0,r1
+00BA: 38 00          lbu     r0,0(r0)
+00BC: 45 01          lc      r1,1
+00BE: 01             add     r0,r1
+00BF: 7D             push    r0
+00C0: 4D 09          lw      r0,9(fp)
+00C2: 51 FD          lw      r1,-3(fp)
+00C4: 01             add     r0,r1
+00C5: 5A             mov     r1,r0
+00C6: 79             pop     r0
+00C7: 81 00          sb      r0,0(r1)
+00C9: 4D 0C          lw      r0,12(fp)
+00CB: 2B 1A 01 00    la      r2,L7
+00CF: 28             jmp     (r2)
+                    L13:
+00D0: 4D 0C          lw      r0,12(fp)
+00D2: 45 07          lc      r1,7
+00D4: 19             cls     r0,r1
+00D5: 15 03          brt     L19
+00D7: 2B 18 01 00    la      r2,L15
+00DB: 28             jmp     (r2)
+                    L19:
+00DC: 4D 0C          lw      r0,12(fp)
+00DE: A6 FD          sw      r0,-3(fp)
+                    L16:
+00E0: 4D FD          lw      r0,-3(fp)
+00E2: 45 00          lc      r1,0
+00E4: 1B             cls     r1,r0
+00E5: 14 1E          brf     L18
+00E7: 4D 09          lw      r0,9(fp)
+00E9: 7D             push    r0
+00EA: 4D FD          lw      r0,-3(fp)
+00EC: 45 01          lc      r1,1
+00EE: 9C             sub     r0,r1
+00EF: 5A             mov     r1,r0
+00F0: 79             pop     r0
+00F1: 01             add     r0,r1
+00F2: 38 00          lbu     r0,0(r0)
+00F4: 7D             push    r0
+00F5: 4D 09          lw      r0,9(fp)
+00F7: 51 FD          lw      r1,-3(fp)
+00F9: 01             add     r0,r1
+00FA: 5A             mov     r1,r0
+00FB: 79             pop     r0
+00FC: 81 00          sb      r0,0(r1)
+                    L17:
+00FE: 4D FD          lw      r0,-3(fp)
+0100: 45 01          lc      r1,1
+0102: 9C             sub     r0,r1
+0103: A6 FD          sw      r0,-3(fp)
+0105: 13 D7          bra     L16
+                    L18:
+0107: 4D 09          lw      r0,9(fp)
+0109: 45 00          lc      r1,0
+010B: 01             add     r0,r1
+010C: 5A             mov     r1,r0
+010D: 44 31          lc      r0,49
+010F: 81 00          sb      r0,0(r1)
+0111: 4D 0C          lw      r0,12(fp)
+0113: 45 01          lc      r1,1
+0115: 01             add     r0,r1
+0116: 13 00          bra     L7
+                    L15:
+0118: 44 01          lc      r0,1
+                    L7:
+011A: 69             mov     sp,fp
+011B: 7A             pop     r1
+011C: 7B             pop     r2
+011D: 7C             pop     fp
+011E: 27             jmp     (r1)
+                    _pause_between_numbers:
+011F: 80             push    fp
+0120: 7F             push    r2
+0121: 7E             push    r1
+0122: 65             mov     fp,sp
+0123: 0C FD          add     sp,-3
+0125: 44 00          lc      r0,0
+0127: A6 FD          sw      r0,-3(fp)
+                    L21:
+0129: 4D FD          lw      r0,-3(fp)
+012B: 2A 90 D0 03    la      r1,250000
+012F: 19             cls     r0,r1
+0130: 14 08          brf     L23
+0132: FF             nop
+                    L22:
+0133: 4D FD          lw      r0,-3(fp)
+0135: 45 01          lc      r1,1
+0137: 01             add     r0,r1
+0138: A6 FD          sw      r0,-3(fp)
+013A: 13 EB          bra     L21
+                    L23:
+                    L20:
+013C: 69             mov     sp,fp
+013D: 7A             pop     r1
+013E: 7B             pop     r2
+013F: 7C             pop     fp
+0140: 27             jmp     (r1)
+                    _main:
+0141: 80             push    fp
+0142: 7F             push    r2
+0143: 7E             push    r1
+0144: 65             mov     fp,sp
+0145: 0C F5          add     sp,-11
+0147: 44 F8          lc      r0,-8
+0149: 58             add     r0,fp
+014A: 45 00          lc      r1,0
+014C: 01             add     r0,r1
+014D: 5A             mov     r1,r0
+014E: 44 30          lc      r0,48
+0150: 81 00          sb      r0,0(r1)
+0152: 44 01          lc      r0,1
+0154: A6 F5          sw      r0,-11(fp)
+                    L25:
+0156: 44 01          lc      r0,1
+0158: C8             ceq     r0,z
+0159: 15 23          brt     L26
+015B: 4D F5          lw      r0,-11(fp)
+015D: 7D             push    r0
+015E: 44 F8          lc      r0,-8
+0160: 58             add     r0,fp
+0161: 7D             push    r0
+0162: 29 29 00 00    la      r0,_print_digits
+0166: 25             jal     r1,(r0)
+0167: 0C 06          add     sp,6
+0169: 4D F5          lw      r0,-11(fp)
+016B: 7D             push    r0
+016C: 44 F8          lc      r0,-8
+016E: 58             add     r0,fp
+016F: 7D             push    r0
+0170: 29 6B 00 00    la      r0,_increment_digits
+0174: 25             jal     r1,(r0)
+0175: 0C 06          add     sp,6
+0177: A6 F5          sw      r0,-11(fp)
+0179: 29 1F 01 00    la      r0,_pause_between_numbers
+017D: 25             jal     r1,(r0)
+017E: 13 D4          bra     L25
+                    L26:
+                    L24:
+0180: 69             mov     sp,fp
+0181: 7A             pop     r1
+0182: 7B             pop     r2
+0183: 7C             pop     fp
+0184: 27             jmp     (r1)
