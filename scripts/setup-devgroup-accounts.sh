@@ -109,17 +109,28 @@ ensure_shared_dirs() {
 
   # BASE: group-readable (traverse), not group-writable. setgid so work/ and
   # friends inherit the devgroup group.
+  #
+  # 2750, not 2775: after `setfacl -bn` the mode's group bits become the
+  # owning-group ACL entry (g::), and devgroup members are checked against
+  # g:: wherever a dir's owning group is devgroup — the named
+  # g:devgroup:r-x entry does NOT cap them. 2775 here is how worker pushes
+  # into work/bare half-succeeded (2026-07-28 incident).
   install -d -m 2755 -o root -g "$SHARED_GROUP" "$BASE"
-  install -d -m 2775 -o root -g "$SHARED_GROUP" "$WORK_ROOT"
-  install -d -m 2775 -o root -g "$SHARED_GROUP" "$BIN_DIR"
-  install -d -m 2775 -o root -g "$SHARED_GROUP" "$WORK_SCRIPTS_DIR"
-  install -d -m 2775 -o root -g "$SHARED_GROUP" "$BARE_DIR"
+  install -d -m 2750 -o root -g "$SHARED_GROUP" "$WORK_ROOT"
+  install -d -m 2750 -o root -g "$SHARED_GROUP" "$BIN_DIR"
+  install -d -m 2750 -o root -g "$SHARED_GROUP" "$WORK_SCRIPTS_DIR"
+  install -d -m 2750 -o root -g "$SHARED_GROUP" "$BARE_DIR"
 
   # work/{bin,scripts,bare}: mike rwx, devgroup r-x, others none.
+  # g::r-x is pinned explicitly (access AND default) so the owning-group
+  # entry can never drift back to rwx; without it, setfacl auto-fills g::
+  # from the mode bits. m::rwx stays: the mask must not cap the named
+  # u:mike:rwx entry on these root-owned dirs, and it grants nothing by
+  # itself — g:: and g:devgroup are both r-x.
   for d in "$BIN_DIR" "$WORK_SCRIPTS_DIR" "$BARE_DIR"; do
     setfacl -bn "$d" || true
-    setfacl -m "u:${ADMIN_USER}:rwx,g:${SHARED_GROUP}:r-x,o::---,m::rwx" "$d"
-    setfacl -d -m "u:${ADMIN_USER}:rwx,g:${SHARED_GROUP}:r-x,o::---,m::rwx" "$d"
+    setfacl -m "u:${ADMIN_USER}:rwx,g::r-x,g:${SHARED_GROUP}:r-x,o::---,m::rwx" "$d"
+    setfacl -d -m "u:${ADMIN_USER}:rwx,g::r-x,g:${SHARED_GROUP}:r-x,o::---,m::rwx" "$d"
   done
 
   # Admin dirs: mike-only (0700, no devgroup ACL). d* users cannot enter.
@@ -295,9 +306,13 @@ create_sandbox() {
   setfacl -k  "${sandbox}/github" || true
   setfacl -k  "$srcroot" || true
 
+  # g::r-x pinned for the same reason as in ensure_shared_dirs: these dirs
+  # are setgid devgroup, so an rwx owning-group entry would let every other
+  # d* user write into this sandbox. The worker writes via its named
+  # u:<user>:rwx entry (and as owner), never via the group.
   for p in "$sandbox" "${sandbox}/github" "$srcroot"; do
-    setfacl -m "u:${user}:rwx,u:${ADMIN_USER}:rwx,g:${SHARED_GROUP}:r-x,o::---,m::rwx" "$p"
-    setfacl -d -m "u:${user}:rwx,u:${ADMIN_USER}:rwx,g:${SHARED_GROUP}:r-x,o::---,m::rwx" "$p"
+    setfacl -m "u:${user}:rwx,u:${ADMIN_USER}:rwx,g::r-x,g:${SHARED_GROUP}:r-x,o::---,m::rwx" "$p"
+    setfacl -d -m "u:${user}:rwx,u:${ADMIN_USER}:rwx,g::r-x,g:${SHARED_GROUP}:r-x,o::---,m::rwx" "$p"
   done
 
   local info="${sandbox}/DEVINFO"

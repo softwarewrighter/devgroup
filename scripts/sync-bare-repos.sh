@@ -89,13 +89,17 @@ for line in "${lines[@]}"; do
     fi
   fi
 
-  # Ensure bare is readable by the devgroup. Belt-and-suspenders: (1)
-  # sharedRepository=group should make git create objects group-readable,
-  # but in practice pack-writing paths escape this; (2) chmod -R g+rX fixes
-  # the ACL mask via kernel semantics; (3) a post-receive hook re-chmods
-  # on every future push so new packs can't regress.
+  # Ensure bare is readable — and ONLY readable — by the devgroup. The
+  # bares are single-writer (mike relays; workers fetch, never push), so
+  # sharedRepository is 0640, not "group": "group" makes git mark
+  # everything it creates group-WRITABLE, which combined with setgid
+  # devgroup dirs let workers push into the bares (2026-07-28 incident).
+  # Belt-and-suspenders: (1) sharedRepository=0640 keeps git-created
+  # files group-readable; (2) chmod -R g+rX fixes the ACL mask via
+  # kernel semantics; (3) a post-receive hook re-chmods on every future
+  # push so new packs can't regress.
   if [[ -d "$target" ]]; then
-    git -C "$target" config core.sharedRepository group >/dev/null 2>&1 || true
+    git -C "$target" config core.sharedRepository 0640 >/dev/null 2>&1 || true
     cat > "$target/hooks/post-receive" <<'HOOK'
 #!/bin/sh
 chmod -R g+rX "$(git rev-parse --git-dir)"
