@@ -1,0 +1,31 @@
+
+COR24 Lisp monitor
+1: Scheme REPL
+2: Full Macro Lisp REPL
+h: help
+q: quit
+mon> 2
+Loading Full Macro Lisp prelude...
+Full Macro Lisp REPL
+> (display "foo")
+foonil
+> (println (every? positive? '(1 -2 3)))
+nil
+nil
+> (printl� (every? positive? '(1 2 3)))
+ERR:unbound printl�
+ERR:not-fn
+nil
+> (println (every? positive? '(1 2 3)))
+t
+t
+> (-> 1 (+ 2))
+3
+> (-> (-> 1 (+ 2)) (* 10))
+30
+> (define add10 (partial + 10))
+#<obj>
+> (add10 5)
+15
+> 
+

@@ -13,3 +13,10 @@ work/bin/*
 !work/bin/snobol24
 !work/bin/prolog24
 .claude/
+
+# Generated composite hardware images (sources and logs are tracked).
+/monitor-test.lgo
+/scheme-suite.lgo
+/standard-suite.lgo
+/scheme-full-suite.lgo
+/forth-apl-suite.lgo

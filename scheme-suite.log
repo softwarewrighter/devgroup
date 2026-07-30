@@ -1,0 +1,24 @@
+upload: line 9359, 80 bytes, awaiting echo
+L0523F84D6F6E69746F722068616C7465643B20707265737320533120666F72206C6F61642D616E
+upload: line 9360, 66 bytes, awaiting echo
+L05241C642D676F2E0A000A3F20756E6B6E6F776E2073656C656374696F6E0A00
+upload: line 9361, 8 bytes, awaiting echo
+G000000
+upload: completed 9361 lines from scheme-suite.lgo
+Jump to 000000
+
+COR24 Scheme suite hardware test
+
+COR24 monitor
+1: Scheme REPL
+h: help
+q: quit
+mon> 1
+Loading Scheme prelude...
+Scheme REPL
+> (+ 1 3 4)
+8
+> (map (lambda (x) (* x x)) '(1 2 3))
+(1 4 9)
+> 
+
