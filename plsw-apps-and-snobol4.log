@@ -1,0 +1,138 @@
+upload: line 1375, 80 bytes, awaiting echo
+L0D81447B7C27807F7E654D09510C46001915039C0B0113F657697A7B7C27000000000000000000
+upload: line 1376, 14 bytes, awaiting echo
+L0D8168000000
+upload: line 1377, 8 bytes, awaiting echo
+G0D0000
+upload: completed 1377 lines from plsw-apps-and-snobol4.lgo
+Jump to 0D0000
+
+COR24 PL/SW and SNOBOL4 demos
+
+1: PL/SW hello
+2: PL/SW count 1..10
+3: SNOBOL4 ELIZA
+4: SNOBOL4 interactive echo
+5: SNOBOL4 palindrome
+h: help
+q: quit
+mon> 1
+Starting PL/SW hello.
+Hello from PL/SW!
+
+COR24 PL/SW and SNOBOL4 demos
+
+1: PL/SW hello
+2: PL/SW count 1..10
+3: SNOBOL4 ELIZA
+4: SNOBOL4 interactive echo
+5: SNOBOL4 palindrome
+h: help
+q: quit
+mon> 
+1: PL/SW hello
+2: PL/SW count 1..10
+3: SNOBOL4 ELIZA
+4: SNOBOL4 interactive echo
+5: SNOBOL4 palindrome
+h: help
+q: quit
+mon> 2
+Starting PL/SW count.
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+
+COR24 PL/SW and SNOBOL4 demos
+
+1: PL/SW hello
+2: PL/SW count 1..10
+3: SNOBOL4 ELIZA
+4: SNOBOL4 interactive echo
+5: SNOBOL4 palindrome
+h: help
+q: quit
+
+mon> 3
+Starting ELIZA. Type Ctrl-] to return.
+THE DOCTOR IS IN.  WHAT IS YOUR PROBLEM?
+ 
+NADA
+P: NADA
+E: CAN YOU ELABORATE ON THAT?
+ 
+WHY?
+P: WHY?
+E: CAN YOU ELABORATE ON THAT?
+ 
+WHY SHOULD I ELABORATE?
+P: WHY SHOULD I ELABORATE?
+E: CAN YOU ELABORATE ON THAT?
+ 
+NO I CANNOT
+P: NO I CANNOT
+E: WHY NOT?
+ 
+BYE
+P: BYE
+E: EARLIER YOU MENTIONED NO YOU CANNOT.
+ 
+
+COR24 PL/SW and SNOBOL4 demos
+
+1: PL/SW hello
+2: PL/SW count 1..10
+3: SNOBOL4 ELIZA
+4: SNOBOL4 interactive echo
+5: SNOBOL4 palindrome
+h: help
+q: quit
+mon> 4
+Starting SNOBOL4 echo. Type Ctrl-] to return.
+TYPE TEXT; I WILL ECHO IT.  CTRL-] RETURNS TO THE MENU.
+IT WORKS
+YOU SAID: IT WORKS
+
+COR24 PL/SW and SNOBOL4 demos
+
+1: PL/SW hello
+2: PL/SW count 1..10
+3: SNOBOL4 ELIZA
+4: SNOBOL4 interactive echo
+5: SNOBOL4 palindrome
+h: help
+q: quit
+mon> 5
+Starting SNOBOL4 palindrome. Type Ctrl-] to return.
+Palindrome check
+ 
+input: RACECAR
+  -> palindrome
+ 
+input: HELLO
+  -> not a palindrome
+ 
+input: ABCBA
+  -> palindrome
+ 
+Press Ctrl-] to return to the menu.
+
+COR24 PL/SW and SNOBOL4 demos
+
+1: PL/SW hello
+2: PL/SW count 1..10
+3: SNOBOL4 ELIZA
+4: SNOBOL4 interactive echo
+5: SNOBOL4 palindrome
+h: help
+q: quit
+mon> 
+
+

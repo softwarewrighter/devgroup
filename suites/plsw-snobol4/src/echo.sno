@@ -1,0 +1,6 @@
+* Interactive SNOBOL4 echo/greeting demo.
+        OUTPUT = 'TYPE TEXT; I WILL ECHO IT.  CTRL-] RETURNS TO THE MENU.'
+LOOP    S = INPUT :F(DONE)
+        OUTPUT = 'YOU SAID: ' S :(LOOP)
+DONE    OUTPUT = 'GOODBYE.'
+END

@@ -1,0 +1,92 @@
+L020EE80204454D4954012B00000000000000000000000000000000000000000000000000000000
+upload: line 3486, 80 bytes, awaiting echo
+L020F0C00000000000B0A02290608003800C81502C70000002900080038002B03080042001715E2
+upload: line 3487, 52 bytes, awaiting echo
+L020F30291008000238000B017D2903080087007953000A0328
+upload: line 3488, 8 bytes, awaiting echo
+G000000
+upload: completed 3488 lines from forth-apl-suite.lgo
+Jump to 000000
+
+COR24 Forth/APL interrupt monitor
+
+1: Forth
+2: APL
+h: help
+q: quit
+mon> 1
+Starting Forth...
+?  ok
+?  ok
+VER UNTIL BYE BEGIN ELSE THEN IF \ ( WORDS .S DEPTH HEX DECIMAL SPACE CR QUIT INTERPRET NUMBER . SW? LED! IMMEDIATE :NONAME ; : CREATE WORD FIND ] [ ALLOT C, , BASE STATE LATEST HERE EXECUTE C! C@ ! @ R@ R> >R OVER SWAP DUP DROP 0= < = XOR OR AND /MOD - * + EXIT KEY EMIT  ok
+COR24 Forth v0.
+ ok
+
+
+===== note above does not echo inputs, "word" enter, "word" enter, "WORD" enter, and "VER" enter, and finally Ctrl-] to return to menu (below)
+
+ ok
+
+COR24 Forth/APL interrupt monitor
+
+1: Forth
+2: APL
+h: help
+q: quit
+mon> 2
+Starting APL...
+COR24 APL v0.1
+      )fns
+  SYNTAX ERROR
+      )FNS
+      )VARS
+      DESCRIBE
+  VALUE ERROR
+      )WSID
+  SYNTAX ERROR
+      )HELP
+  SYNTAX ERROR
+      HELP
+  VALUE ERROR
+      println iota 5
+  SYNTAX ERROR
+      iota 5
+ 1 2 3 4 5
+      shape-of iota 5
+  SYNTAX ERROR
+      shapeof iota 5
+  SYNTAX ERROR
+      rho iota 5
+  5
+      ,iota 5
+  SYNTAX ERROR
+      , iota 5
+  SYNTAX ERROR
+      ravel iota 5
+  SYNTAX ERROR
+      cup iota 5
+ 1 2 3 4 5
+      cap iota 5
+  DOMAIN ERROR
+      iota 5 cap iota 5
+  RANK ERROR
+      (iota 5) cap (iota 5)
+ 1 2 3 4 5
+      
+
+=========== note Ctrl-] back to menu (below)
+
+      
+COR24 Forth/APL interrupt monitor
+
+1: Forth
+2: APL
+h: help
+q: quit
+mon> 1
+Starting Forth...
+ ok
+42  ok
+
+=== note I typed "6 7 *" enter and then "." enter (inputs in quotes were not echoed)
+

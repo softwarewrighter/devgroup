@@ -20,3 +20,5 @@ work/bin/*
 /standard-suite.lgo
 /scheme-full-suite.lgo
 /forth-apl-suite.lgo
+/plsw-apps-and-snobol4.lgo
+/suites/plsw-snobol4/build/
