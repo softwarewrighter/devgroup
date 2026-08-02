@@ -1,0 +1,5 @@
+te/te
+te2/te2
+te2/*.o
+te2/*.lgs
+te-rs/target/
